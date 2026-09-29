@@ -67,6 +67,8 @@ export class BaseLevelScene extends Phaser.Scene {
   private toastTimer: number = 0;
   private levelCompleted: boolean = false;
   private isGameOver: boolean = false;
+  private hudSnapshotElapsedMs: number = 0;
+  private exitLockWasShown: boolean = false;
 
   constructor(key: string, levelNum: 1 | 2 | 3) {
     super({ key });
@@ -76,6 +78,8 @@ export class BaseLevelScene extends Phaser.Scene {
   public create() {
     this.levelCompleted = false;
     this.isGameOver = false;
+    this.hudSnapshotElapsedMs = 0;
+    this.exitLockWasShown = false;
     this.securityAlertLevel = 0;
     this.decoyCooldownMs = 0;
     this.doors = [];
@@ -324,13 +328,29 @@ export class BaseLevelScene extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.exitPortal, () => {
       if (this.exitPortal.isUnlocked() && !this.levelCompleted) {
         this.handleLevelComplete();
-      } else if (!this.exitPortal.isUnlocked()) {
+      } else if (!this.exitPortal.isUnlocked() && !this.exitLockWasShown) {
+        this.exitLockWasShown = true;
         this.showToast(this.getExitLockReason());
       }
     });
 
     // Camera setup
-    this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
+    const camera = this.cameras.main;
+    const resizeCameraBounds = (gameSize: Phaser.Structs.Size) => {
+      const horizontalPadding = Math.max(0, (gameSize.width - worldWidth) / 2);
+      const verticalPadding = Math.max(0, (gameSize.height - worldHeight) / 2);
+      camera.setBounds(
+        -horizontalPadding,
+        -verticalPadding,
+        worldWidth + horizontalPadding * 2,
+        worldHeight + verticalPadding * 2
+      );
+    };
+    resizeCameraBounds(this.scale.gameSize);
+    this.scale.on(Phaser.Scale.Events.RESIZE, resizeCameraBounds);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off(Phaser.Scale.Events.RESIZE, resizeCameraBounds);
+    });
     this.cameras.main.startFollow(this.player, true, 0.14, 0.14);
     this.cameras.main.setBackgroundColor('#070b12');
 
@@ -742,7 +762,22 @@ export class BaseLevelScene extends Phaser.Scene {
       }
     }
 
-    this.emitHudSnapshot();
+    if (
+      Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        this.exitPortal.x,
+        this.exitPortal.y
+      ) > TILE_SIZE * 1.5
+    ) {
+      this.exitLockWasShown = false;
+    }
+
+    this.hudSnapshotElapsedMs += delta;
+    if (this.hudSnapshotElapsedMs >= 100) {
+      this.hudSnapshotElapsedMs %= 100;
+      this.emitHudSnapshot();
+    }
   }
 
   private emitHudSnapshot() {

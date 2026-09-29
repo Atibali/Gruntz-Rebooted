@@ -78,16 +78,18 @@ export const AbilityBar: React.FC<AbilityBarProps> = ({
   };
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex items-end justify-between px-4 sm:px-6 pb-3 gap-3">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex items-end justify-between gap-2 px-2 pb-2 sm:gap-3 sm:px-6 sm:pb-3">
       {/* Compact Touch / Mouse D-Pad */}
-      <div className="pointer-events-auto hidden xl:grid grid-cols-3 gap-1 rounded-xl border border-slate-800/90 bg-[#090E17]/90 p-2 backdrop-blur-sm">
+      <div className="pointer-events-auto grid grid-cols-3 gap-0.5 rounded-lg border border-slate-800/90 bg-[#090E17]/90 p-1 backdrop-blur-sm lg:hidden 2xl:grid">
         <div />
         <button
           onPointerDown={() => onMoveDir(0, -1)}
           onPointerUp={() => onMoveDir(0, 0)}
           onPointerLeave={() => onMoveDir(0, 0)}
+          onPointerCancel={() => onMoveDir(0, 0)}
           title="Move Up (W / Up Arrow)"
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded bg-slate-800/90 text-slate-200 hover:bg-slate-700 active:bg-emerald-600"
+          aria-label="Move up"
+          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded bg-slate-800/90 text-slate-200 hover:bg-slate-700 active:bg-emerald-600 sm:h-8 sm:w-8"
         >
           <ArrowUp className="h-4 w-4" />
         </button>
@@ -96,8 +98,10 @@ export const AbilityBar: React.FC<AbilityBarProps> = ({
           onPointerDown={() => onMoveDir(-1, 0)}
           onPointerUp={() => onMoveDir(0, 0)}
           onPointerLeave={() => onMoveDir(0, 0)}
+          onPointerCancel={() => onMoveDir(0, 0)}
           title="Move Left (A / Left Arrow)"
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded bg-slate-800/90 text-slate-200 hover:bg-slate-700 active:bg-emerald-600"
+          aria-label="Move left"
+          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded bg-slate-800/90 text-slate-200 hover:bg-slate-700 active:bg-emerald-600 sm:h-8 sm:w-8"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
@@ -105,8 +109,10 @@ export const AbilityBar: React.FC<AbilityBarProps> = ({
           onPointerDown={() => onMoveDir(0, 1)}
           onPointerUp={() => onMoveDir(0, 0)}
           onPointerLeave={() => onMoveDir(0, 0)}
+          onPointerCancel={() => onMoveDir(0, 0)}
           title="Move Down (S / Down Arrow)"
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded bg-slate-800/90 text-slate-200 hover:bg-slate-700 active:bg-emerald-600"
+          aria-label="Move down"
+          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded bg-slate-800/90 text-slate-200 hover:bg-slate-700 active:bg-emerald-600 sm:h-8 sm:w-8"
         >
           <ArrowDown className="h-4 w-4" />
         </button>
@@ -114,39 +120,56 @@ export const AbilityBar: React.FC<AbilityBarProps> = ({
           onPointerDown={() => onMoveDir(1, 0)}
           onPointerUp={() => onMoveDir(0, 0)}
           onPointerLeave={() => onMoveDir(0, 0)}
+          onPointerCancel={() => onMoveDir(0, 0)}
           title="Move Right (D / Right Arrow)"
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded bg-slate-800/90 text-slate-200 hover:bg-slate-700 active:bg-emerald-600"
+          aria-label="Move right"
+          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded bg-slate-800/90 text-slate-200 hover:bg-slate-700 active:bg-emerald-600 sm:h-8 sm:w-8"
         >
           <ArrowRight className="h-4 w-4" />
         </button>
       </div>
 
       {/* Center Dock: Separated PHYSICAL TOOL Slot + DIGITAL ABILITIES */}
-      <div className="pointer-events-auto mx-auto flex flex-wrap items-center justify-center gap-2.5 rounded-xl border border-slate-800/90 bg-[#090E17]/95 p-2 shadow-xl backdrop-blur-sm">
+      <div className="pointer-events-auto mx-0 flex flex-nowrap items-center justify-center gap-1 rounded-lg border border-slate-800/90 bg-[#090E17]/95 p-1 shadow-xl backdrop-blur-sm sm:mx-auto sm:flex-wrap sm:gap-2.5 sm:rounded-xl sm:p-2">
         {/* Active Physical Tool Slot (One-Tool-at-a-Time) */}
         <button
           onClick={onUseActiveTool}
-          className={`flex min-w-[165px] cursor-pointer flex-col rounded-lg border px-3.5 py-2 text-left transition-all ${
+          aria-label={`Use active tool: ${toolMeta.name}. ${toolMeta.usageHint}`}
+          title={`${toolMeta.name} · ${toolMeta.usageHint}`}
+          className={`flex w-[52px] min-w-0 cursor-pointer flex-col items-center rounded-lg border px-1 py-1.5 text-center transition-all sm:w-auto sm:min-w-[165px] sm:items-stretch sm:px-3.5 sm:py-2 sm:text-left ${
             activeTool !== 'NONE'
               ? 'border-amber-500/70 bg-amber-950/30 hover:bg-amber-950/50'
               : 'border-slate-800 bg-slate-950/80 hover:border-slate-700'
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="font-mono-tabular text-[10px] font-bold tracking-wider text-amber-400 whitespace-nowrap">
+            <span className="hidden whitespace-nowrap font-mono-tabular text-[10px] font-bold tracking-wider text-amber-400 sm:inline">
               ACTIVE TOOL [SPACE]
             </span>
             {getToolIcon(activeTool)}
           </div>
-          <div className="mt-0.5 font-display text-sm font-bold text-slate-100 whitespace-nowrap">
+          <div className="mt-0.5 max-w-full truncate font-display text-[9px] font-bold text-slate-100 sm:text-sm">
             [{toolMeta.shortName}]
           </div>
-          <span className="text-[10px] text-slate-400 whitespace-nowrap">
+          <span className="hidden whitespace-nowrap text-[10px] text-slate-400 sm:inline">
             {toolMeta.usageHint}
           </span>
         </button>
 
-        <div className="hidden sm:block h-10 w-px bg-slate-800 mx-0.5" />
+        <button
+          onClick={onTriggerInteract}
+          aria-label="Interact with nearby object"
+          title={nearbyPrompt ?? 'Interact with nearby object'}
+          className={`flex h-10 w-9 shrink-0 cursor-pointer flex-col items-center justify-center rounded-lg border font-mono-tabular text-[9px] font-semibold transition-all lg:hidden ${
+            nearbyPrompt
+              ? 'border-emerald-400 bg-emerald-950/80 text-emerald-300'
+              : 'border-slate-800 bg-slate-950/80 text-slate-400'
+          }`}
+        >
+          <span>[E]</span>
+          <span>USE</span>
+        </button>
+        <div className="mx-0.5 hidden h-10 w-px bg-slate-800 sm:block" />
 
         {/* 4 Digital Abilities */}
         {abilities.map((ab) => {
@@ -158,7 +181,14 @@ export const AbilityBar: React.FC<AbilityBarProps> = ({
             <button
               key={ab.id}
               onClick={() => onTriggerAbility(ab.id)}
-              className={`relative flex min-w-[122px] cursor-pointer flex-col overflow-hidden rounded-lg border px-3 py-2 text-left transition-all ${
+              aria-label={`${ab.name}: ${
+                ab.requiresTool && !ab.toolAvailable
+                  ? 'locked; requires the correct tool'
+                  : ab.cooldownRemaining > 0
+                  ? `${ab.cooldownRemaining.toFixed(1)} seconds remaining`
+                  : 'ready'
+              }`}
+              className={`relative flex h-10 w-[39px] min-w-0 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-lg border px-0.5 py-1 text-center transition-all sm:h-auto sm:w-auto sm:min-w-[122px] sm:items-stretch sm:px-3 sm:py-2 sm:text-left ${
                 ab.activeRemaining > 0
                   ? 'border-sky-400 bg-sky-950/60'
                   : ab.isReady
@@ -173,18 +203,18 @@ export const AbilityBar: React.FC<AbilityBarProps> = ({
                 />
               )}
 
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
+              <div className="flex w-full flex-col items-center justify-between gap-0.5 sm:flex-row sm:gap-2">
+              <div className="flex items-center gap-0.5 sm:gap-1.5">
                   <span className="font-mono-tabular text-xs font-bold text-emerald-400">
                     [{ab.key}]
                   </span>
                   {getIcon(ab.id)}
-                  <span className="font-display text-xs sm:text-sm font-semibold text-slate-100 whitespace-nowrap">
+                <span className="hidden whitespace-nowrap font-display text-xs font-semibold text-slate-100 sm:inline sm:text-sm">
                     {ab.name}
                   </span>
                 </div>
 
-                <span className="font-mono-tabular text-[10px] text-slate-400 whitespace-nowrap">
+              <span className="max-w-full truncate whitespace-nowrap font-mono-tabular text-[7px] text-slate-400 sm:text-[10px]">
                   {ab.activeRemaining > 0
                     ? `${ab.activeRemaining.toFixed(1)}s`
                     : ab.cooldownRemaining > 0
@@ -195,7 +225,7 @@ export const AbilityBar: React.FC<AbilityBarProps> = ({
                 </span>
               </div>
 
-              <span className="mt-0.5 text-[10px] text-slate-400 whitespace-nowrap">
+              <span className="mt-0.5 hidden whitespace-nowrap text-[10px] text-slate-400 sm:inline">
                 {getDesc(ab)}
               </span>
             </button>

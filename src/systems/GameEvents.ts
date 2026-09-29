@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 export type GameState =
   | 'MAIN_MENU'
+  | 'LEVEL_INTRO'
   | 'PLAYING'
   | 'PAUSED'
   | 'LEVEL_COMPLETE'

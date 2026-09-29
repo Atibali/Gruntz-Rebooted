@@ -9,6 +9,7 @@ import { AudioSystem } from './systems/AudioSystem';
 import { HUD } from './ui/HUD';
 import { AbilityBar } from './ui/AbilityBar';
 import { PauseMenu } from './ui/PauseMenu';
+import { LEVELS } from './config/levels';
 import {
   Play,
   Shield,
@@ -83,15 +84,31 @@ export default function App() {
   const [hud, setHud] = useState<HudSnapshot>(INITIAL_HUD);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [activeLevel, setActiveLevel] = useState<1 | 2 | 3>(1);
+  const activeLevelRef = useRef<1 | 2 | 3>(1);
 
   const getSceneKey = (lvl: 1 | 2 | 3) =>
     lvl === 1 ? 'Level1Scene' : lvl === 2 ? 'Level2Scene' : 'Level3Scene';
 
+  const prepareLevel = useCallback((lvl: 1 | 2 | 3) => {
+    activeLevelRef.current = lvl;
+    setActiveLevel(lvl);
+    setGameState('LEVEL_INTRO');
+    setShowControlsModal(false);
+    const game = phaserGameRef.current;
+    if (game) {
+      (['Level1Scene', 'Level2Scene', 'Level3Scene'] as const).forEach((key) => {
+        if (game.scene.isActive(key) && !game.scene.isPaused(key)) {
+          game.scene.pause(key);
+        }
+      });
+    }
+  }, []);
+
   const startOrSwitchLevel = useCallback((lvl: 1 | 2 | 3) => {
+    activeLevelRef.current = lvl;
     setActiveLevel(lvl);
     setGameState('PLAYING');
     setShowControlsModal(false);
-
     const game = phaserGameRef.current;
     if (!game) return;
 
@@ -154,7 +171,7 @@ export default function App() {
 
     const onRequestTogglePause = () => {
       setGameState((prev) => {
-        const currentKey = getSceneKey(activeLevel);
+        const currentKey = getSceneKey(activeLevelRef.current);
         if (prev === 'PLAYING') {
           game.scene.pause(currentKey);
           return 'PAUSED';
@@ -181,7 +198,7 @@ export default function App() {
       game.destroy(true);
       phaserGameRef.current = null;
     };
-  }, [activeLevel]);
+  }, []);
 
   const handleToggleMute = () => {
     const muted = AudioSystem.toggleMute();
@@ -211,16 +228,19 @@ export default function App() {
   };
 
   const handleNextLevel = () => {
-    const nextLvl = (activeLevel < 3 ? activeLevel + 1 : 1) as 1 | 2 | 3;
-    startOrSwitchLevel(nextLvl);
+    if (activeLevel < 3) {
+      prepareLevel((activeLevel + 1) as 1 | 2 | 3);
+    } else {
+      prepareLevel(1);
+    }
   };
 
   const handleMainMenu = () => {
     const game = phaserGameRef.current;
     if (game) {
       (['Level1Scene', 'Level2Scene', 'Level3Scene'] as const).forEach((k) => {
-        if (game.scene.isActive(k)) {
-          game.scene.pause(k);
+        if (game.scene.isActive(k) || game.scene.isPaused(k)) {
+          game.scene.stop(k);
         }
       });
     }
@@ -253,7 +273,7 @@ export default function App() {
             onToggleMute={handleToggleMute}
             onPause={handlePause}
             onRestart={handleRestartLevel}
-            onSelectLevel={(lvl) => startOrSwitchLevel(lvl)}
+            onSelectLevel={prepareLevel}
             onSelectToolFromModal={handleSelectToolFromModal}
             onCloseToolModal={handleCloseToolModal}
           />
@@ -293,7 +313,7 @@ export default function App() {
             {/* Primary Menu Actions */}
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
-                onClick={() => startOrSwitchLevel(1)}
+                onClick={() => prepareLevel(1)}
                 className="flex w-full sm:w-auto min-w-[200px] cursor-pointer items-center justify-center gap-2.5 rounded-xl bg-emerald-500 px-7 py-3.5 font-display text-base font-bold text-slate-950 hover:bg-emerald-400 transition-all shadow-lg whitespace-nowrap"
               >
                 <Play className="h-5 w-5 fill-current" />
@@ -321,7 +341,7 @@ export default function App() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <button
-                  onClick={() => startOrSwitchLevel(1)}
+                  onClick={() => prepareLevel(1)}
                   className="cursor-pointer rounded-xl border border-slate-800 bg-slate-900/70 p-3.5 text-left hover:border-emerald-500/60 hover:bg-slate-900 transition-colors"
                 >
                   <div className="font-display text-sm font-bold text-emerald-400">
@@ -332,7 +352,7 @@ export default function App() {
                   </div>
                 </button>
                 <button
-                  onClick={() => startOrSwitchLevel(2)}
+                  onClick={() => prepareLevel(2)}
                   className="cursor-pointer rounded-xl border border-slate-800 bg-slate-900/70 p-3.5 text-left hover:border-amber-500/60 hover:bg-slate-900 transition-colors"
                 >
                   <div className="font-display text-sm font-bold text-amber-400">
@@ -343,7 +363,7 @@ export default function App() {
                   </div>
                 </button>
                 <button
-                  onClick={() => startOrSwitchLevel(3)}
+                  onClick={() => prepareLevel(3)}
                   className="cursor-pointer rounded-xl border border-slate-800 bg-slate-900/70 p-3.5 text-left hover:border-rose-500/60 hover:bg-slate-900 transition-colors"
                 >
                   <div className="font-display text-sm font-bold text-rose-400">
@@ -441,6 +461,51 @@ export default function App() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {gameState === 'LEVEL_INTRO' && (
+        <div className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-[#070B12]/90 p-4 backdrop-blur-md sm:items-center">
+          <section
+            aria-labelledby="level-intro-title"
+            className="my-auto w-full max-w-xl rounded-2xl border border-emerald-500/30 bg-[#0B121E] p-7 shadow-2xl sm:p-9"
+          >
+            <p className="font-mono-tabular text-xs font-semibold tracking-[0.2em] text-amber-400">
+              SECTOR {String(activeLevel).padStart(2, '0')} · SYSTEM BRIEFING
+            </p>
+            <h2
+              id="level-intro-title"
+              className="font-display mt-3 text-3xl font-bold tracking-wide text-emerald-400 sm:text-4xl"
+            >
+              {LEVELS[activeLevel].name}
+            </h2>
+            <p className="mt-2 text-sm text-slate-400">{LEVELS[activeLevel].subtitle}</p>
+            <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950/80 p-5">
+              <p className="font-mono-tabular text-[11px] font-semibold tracking-wider text-slate-500">
+                PRIMARY OBJECTIVE
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-200">
+                {LEVELS[activeLevel].objective}
+              </p>
+              <p className="mt-4 font-mono-tabular text-xs text-amber-300">
+                REQUIRED CORE FRAGMENTS · {LEVELS[activeLevel].shardsRequired}
+              </p>
+            </div>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row">
+              <button
+                onClick={handleMainMenu}
+                className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-semibold text-slate-300 transition-colors hover:bg-slate-800"
+              >
+                BACK TO MAIN MENU
+              </button>
+              <button
+                onClick={() => startOrSwitchLevel(activeLevel)}
+                className="flex-1 rounded-xl bg-emerald-500 px-5 py-3 font-display text-sm font-bold text-slate-950 transition-colors hover:bg-emerald-400"
+              >
+                INITIALIZE SECTOR
+              </button>
+            </div>
+          </section>
         </div>
       )}
 

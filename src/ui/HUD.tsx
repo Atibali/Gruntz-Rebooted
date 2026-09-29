@@ -46,14 +46,14 @@ export const HUD: React.FC<HUDProps> = ({
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-20 flex flex-col">
       {/* Top 3-Zone Header Bar */}
-      <header className="pointer-events-auto flex items-center justify-between border-b border-slate-800/90 bg-[#090E17]/95 px-6 py-3 backdrop-blur-sm">
+      <header className="pointer-events-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-800/90 bg-[#090E17]/95 px-3 py-2 backdrop-blur-sm sm:px-6 sm:py-3">
         {/* Zone 1: Brand, Health & Active Physical Tool */}
-        <div className="flex items-center gap-5">
-          <span className="font-display text-lg font-bold tracking-wider text-emerald-400 whitespace-nowrap">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+          <span className="font-display whitespace-nowrap text-sm font-bold tracking-wider text-emerald-400 sm:text-lg">
             GRUNTZ: REBOOTED
           </span>
 
-          <div className="flex items-center gap-2.5 border-l border-slate-800 pl-4">
+          <div className="flex items-center gap-2 border-l border-slate-800 pl-3 sm:gap-2.5 sm:pl-4">
             <div className="flex items-center gap-1.5" aria-label={`Health ${hud.hp} of ${hud.maxHp}`}>
               {Array.from({ length: hud.maxHp }).map((_, i) => {
                 const filled = i < hud.hp;
@@ -69,7 +69,7 @@ export const HUD: React.FC<HUDProps> = ({
                 );
               })}
             </div>
-            <span className="font-mono-tabular text-xs text-slate-300 whitespace-nowrap">
+            <span className="hidden whitespace-nowrap font-mono-tabular text-xs text-slate-300 sm:inline">
               HP: {hud.hp}/{hud.maxHp} · {healthLabel}
             </span>
           </div>
@@ -112,16 +112,16 @@ export const HUD: React.FC<HUDProps> = ({
         </nav>
 
         {/* Zone 3: Top-Right Core Fragments, Security Alert & System Actions */}
-        <div className="flex items-center gap-4">
+        <div className="ml-auto flex items-center gap-2 sm:gap-4">
           <div className="flex items-center gap-2 text-right">
-            <span className="font-mono-tabular text-xs sm:text-sm font-semibold text-amber-400 whitespace-nowrap">
+            <span className="font-mono-tabular whitespace-nowrap text-[10px] font-semibold text-amber-400 sm:text-sm">
               CORE FRAGMENTS: {hud.shardsCollected} / {hud.shardsRequired}
             </span>
-            <span className="text-slate-600" aria-hidden="true">
+            <span className="hidden text-slate-600 sm:inline" aria-hidden="true">
               ·
             </span>
             <span
-              className={`font-mono-tabular text-xs font-semibold whitespace-nowrap ${
+              className={`whitespace-nowrap font-mono-tabular text-[9px] font-semibold sm:text-xs ${
                 hud.exitUnlocked
                   ? 'text-emerald-400'
                   : hud.securityAlertLevel > 0
@@ -137,7 +137,7 @@ export const HUD: React.FC<HUDProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-2 border-l border-slate-800 pl-4">
+          <div className="flex items-center gap-1.5 border-l border-slate-800 pl-2 sm:gap-2 sm:pl-4">
             <button
               onClick={onToggleMute}
               title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
@@ -154,10 +154,12 @@ export const HUD: React.FC<HUDProps> = ({
             </button>
             <button
               onClick={onPause}
-              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/90 px-3 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors whitespace-nowrap"
+              aria-label="Pause game"
+              title="Pause game"
+              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/90 px-2 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700 sm:px-3"
             >
               <Pause className="h-3.5 w-3.5" />
-              <span>Pause [ESC]</span>
+              <span className="hidden whitespace-nowrap sm:inline">Pause [ESC]</span>
             </button>
           </div>
         </div>
