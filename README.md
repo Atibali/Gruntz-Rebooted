@@ -73,8 +73,11 @@ TypeScript, React, Phaser, Vite, and Tailwind CSS. The game draws its Phaser tex
 
 ## Play and screenshots
 
-- **Playable build:** [Add the hosted game URL here](#)
-- **Screenshots:** Add gameplay screenshots here.
+- **Playable build:** [Play GRUNTZ: REBOOTED](https://gruntz-rebooted.ai.studio/)
+
+### Boot Sector gameplay
+
+![GRUNTZ: REBOOTED gameplay in the Boot Sector, showing the game map, objective, HUD, and ability bar](screenshots/gruntz-rebooted-gameplay.png)
 
 ## Credits and asset information
 
