@@ -1,0 +1,6 @@
+{
+  "name": "GRUNTZ: REBOOTED",
+  "description": "A top-down digital puzzle-adventure inspired by Gruntz (1999). Guide a Digital Grunt through a corrupted computer system, solve environmental puzzles, use 4 cyber abilities, collect Data Shards, and purge the Core Guardian.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
