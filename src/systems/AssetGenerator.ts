@@ -323,6 +323,134 @@ export class AssetGenerator {
     g.fillRect(1, 1, 6, 6);
     g.generateTexture('particle_square', 8, 8);
 
+    // 16. Tool Station (48x48) - Cybernetic Armory Rack
+    g.clear();
+    g.fillStyle(0x0f172a, 1);
+    g.fillRoundedRect(2, 2, 44, 44, 6);
+    g.lineStyle(2.5, 0x38bdf8, 1);
+    g.strokeRoundedRect(2, 2, 44, 44, 6);
+    // Inner glowing bay slots
+    g.fillStyle(0x1e293b, 1);
+    g.fillRect(7, 8, 34, 24);
+    // 4 mini tool color indicators (Hammer=Amber, EMP=Cyan, Shovel=Emerald, Decoy=Rose)
+    g.fillStyle(0xf59e0b, 1);
+    g.fillRect(10, 11, 6, 8);
+    g.fillStyle(0x38bdf8, 1);
+    g.fillRect(18, 11, 6, 8);
+    g.fillStyle(0x10b981, 1);
+    g.fillRect(26, 11, 6, 8);
+    g.fillStyle(0xf43f5e, 1);
+    g.fillRect(34, 11, 5, 8);
+    // Console strip
+    g.fillStyle(0x38bdf8, 0.85);
+    g.fillRect(10, 23, 28, 4);
+    g.fillStyle(0x334155, 1);
+    g.fillRect(12, 35, 24, 6);
+    g.generateTexture('tool_station', 48, 48);
+
+    // 17. Corrupted Wall (48x48) - Breakable with DATA HAMMER
+    g.clear();
+    g.fillStyle(0x2e1025, 1);
+    g.fillRect(0, 0, 48, 48);
+    g.lineStyle(2, 0xf59e0b, 1);
+    g.strokeRect(2, 2, 44, 44);
+    // Glowing amber/crimson fracture cracks
+    g.lineStyle(2.5, 0xfbbf24, 0.95);
+    g.beginPath();
+    g.moveTo(8, 8);
+    g.lineTo(22, 20);
+    g.lineTo(16, 34);
+    g.lineTo(32, 42);
+    g.moveTo(38, 10);
+    g.lineTo(22, 20);
+    g.lineTo(40, 28);
+    g.strokePath();
+    // Small hammer target emblem in center
+    g.fillStyle(0xf59e0b, 0.9);
+    g.fillRect(19, 17, 10, 5);
+    g.fillRect(23, 22, 3, 8);
+    g.generateTexture('corrupted_wall', 48, 48);
+
+    // 18. Soft-Data Obstacle (48x48) - Diggable with VOID SHOVEL
+    g.clear();
+    g.fillStyle(0x091926, 1);
+    g.fillRoundedRect(2, 2, 44, 44, 8);
+    g.lineStyle(2, 0x34d399, 0.9);
+    g.strokeRoundedRect(2, 2, 44, 44, 8);
+    // Loose data sand / voxel clusters
+    g.fillStyle(0x059669, 0.8);
+    g.fillCircle(16, 18, 8);
+    g.fillCircle(31, 20, 9);
+    g.fillCircle(24, 30, 10);
+    g.fillStyle(0x6ee7b7, 0.9);
+    g.fillRect(13, 15, 4, 4);
+    g.fillRect(29, 17, 4, 4);
+    g.fillRect(22, 27, 5, 5);
+    g.fillRect(17, 31, 3, 3);
+    g.generateTexture('soft_data_block', 48, 48);
+
+    // 19. Glitch Decoy Beacon (36x36) - Holographic Distraction Signal
+    g.clear();
+    g.fillStyle(0xf43f5e, 0.25);
+    g.fillCircle(18, 18, 16);
+    g.lineStyle(2, 0x38bdf8, 1);
+    g.strokeCircle(18, 18, 14);
+    // Mini Holo-Grunt decoy silhouette
+    g.fillStyle(0x38bdf8, 0.9);
+    g.fillRoundedRect(11, 10, 14, 16, 3);
+    g.fillStyle(0xfbbf24, 1);
+    g.fillRect(13, 13, 3, 3);
+    g.fillRect(20, 13, 3, 3);
+    g.generateTexture('decoy_beacon', 36, 36);
+
+    // 20. Tool Icons (22x22) for Player Held Tool & Pickups
+    // HAMMER
+    g.clear();
+    g.fillStyle(0x0f172a, 0.85);
+    g.fillCircle(11, 11, 10);
+    g.lineStyle(1.5, 0xf59e0b, 1);
+    g.strokeCircle(11, 11, 10);
+    g.fillStyle(0xfbbf24, 1);
+    g.fillRect(5, 5, 12, 6);
+    g.fillStyle(0xd97706, 1);
+    g.fillRect(9, 11, 4, 7);
+    g.generateTexture('tool_icon_HAMMER', 22, 22);
+
+    // EMP GLOVE
+    g.clear();
+    g.fillStyle(0x0f172a, 0.85);
+    g.fillCircle(11, 11, 10);
+    g.lineStyle(1.5, 0x38bdf8, 1);
+    g.strokeCircle(11, 11, 10);
+    g.fillStyle(0x38bdf8, 1);
+    g.fillRoundedRect(6, 6, 10, 10, 3);
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(11, 11, 3);
+    g.generateTexture('tool_icon_EMP', 22, 22);
+
+    // VOID SHOVEL
+    g.clear();
+    g.fillStyle(0x0f172a, 0.85);
+    g.fillCircle(11, 11, 10);
+    g.lineStyle(1.5, 0x10b981, 1);
+    g.strokeCircle(11, 11, 10);
+    g.fillStyle(0x34d399, 1);
+    g.fillTriangle(11, 17, 6, 9, 16, 9);
+    g.fillRect(10, 4, 2, 6);
+    g.generateTexture('tool_icon_SHOVEL', 22, 22);
+
+    // GLITCH DECOY
+    g.clear();
+    g.fillStyle(0x0f172a, 0.85);
+    g.fillCircle(11, 11, 10);
+    g.lineStyle(1.5, 0xf43f5e, 1);
+    g.strokeCircle(11, 11, 10);
+    g.fillStyle(0xf43f5e, 1);
+    g.fillRect(7, 7, 8, 8);
+    g.fillStyle(0x38bdf8, 1);
+    g.fillCircle(11, 11, 2.5);
+    g.generateTexture('tool_icon_DECOY', 22, 22);
+
     g.destroy();
   }
 }

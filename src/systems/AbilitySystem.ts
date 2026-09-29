@@ -14,7 +14,6 @@ export class AbilitySystem {
   private player: Player;
   private fxGraphics: Phaser.GameObjects.Graphics;
 
-  // Cooldowns & active timers in ms
   private shieldActiveMs: number = 0;
   private shieldCooldownMs: number = 0;
   private readonly SHIELD_DURATION = 3000;
@@ -22,7 +21,7 @@ export class AbilitySystem {
 
   private empCooldownMs: number = 0;
   private readonly EMP_COOLDOWN = 5000;
-  private readonly EMP_RADIUS = 190;
+  private readonly EMP_RADIUS = 195;
 
   private hackCooldownMs: number = 0;
   private readonly HACK_COOLDOWN = 2500;
@@ -47,7 +46,7 @@ export class AbilitySystem {
     this.shieldCooldownMs = this.SHIELD_COOLDOWN;
     this.player.setShieldActive(true);
     AudioSystem.playShield();
-    this.onToast('SHIELD ACTIVE (3.0s) — Immune to Lasers, Traps & Enemies');
+    this.onToast('SHIELD ACTIVE (3.0s) — Protected against Lasers, Traps & Enemies');
     return true;
   }
 
@@ -58,8 +57,15 @@ export class AbilitySystem {
     hazards: Hazard[],
     boss?: CoreGuardian
   ): boolean {
+    // EMP ability is powered by the EMP GLOVE tool
+    if (this.player.getActiveTool() !== 'EMP') {
+      this.onToast('EMP REQUIRES ACTIVE TOOL: [EMP GLOVE] — Equip at a Tool Station!');
+      return false;
+    }
+
     if (this.empCooldownMs > 0) return false;
     this.empCooldownMs = this.EMP_COOLDOWN;
+    this.player.playToolUseAnim();
     AudioSystem.playEmp();
 
     const px = this.player.x;
@@ -68,49 +74,54 @@ export class AbilitySystem {
 
     drones.forEach((drone) => {
       if (Phaser.Math.Distance.Between(px, py, drone.x, drone.y) <= this.EMP_RADIUS) {
-        drone.disableWithEmp(4500);
+        drone.disableWithEmp(5000);
         affected++;
       }
     });
 
     glitches.forEach((glitch) => {
       if (Phaser.Math.Distance.Between(px, py, glitch.x, glitch.y) <= this.EMP_RADIUS) {
-        glitch.disableWithEmp(4000);
+        glitch.disableWithEmp(4500);
         affected++;
       }
     });
 
     lasers.forEach((laser) => {
       const pos = laser.getPosition();
-      if (Phaser.Math.Distance.Between(px, py, pos.x, pos.y) <= this.EMP_RADIUS + 36) {
-        laser.disableTemporarily(4500);
+      if (Phaser.Math.Distance.Between(px, py, pos.x, pos.y) <= this.EMP_RADIUS + 42) {
+        laser.disableTemporarily(5000);
         affected++;
       }
     });
 
     hazards.forEach((hazard) => {
       if (Phaser.Math.Distance.Between(px, py, hazard.x, hazard.y) <= this.EMP_RADIUS) {
-        hazard.disableTemporarily(4500);
+        hazard.disableTemporarily(5000);
         affected++;
       }
     });
 
+    let bossMessage: string | null = null;
     if (
       boss &&
       !boss.isDefeated() &&
-      Phaser.Math.Distance.Between(px, py, boss.x, boss.y) <= this.EMP_RADIUS + 25
+      Phaser.Math.Distance.Between(px, py, boss.x, boss.y) <= this.EMP_RADIUS + 35
     ) {
-      if (boss.takeDamage(1, 'EMP Overload')) {
-        affected++;
-      }
+      const res = boss.takeAbilityDamage('EMP');
+      bossMessage = res.message;
+      if (res.damaged) affected++;
     }
 
     this.spawnExpandingRing(px, py, this.EMP_RADIUS, 0x38bdf8);
-    this.onToast(
-      affected > 0
-        ? `EMP PULSE — Disabled ${affected} Security System${affected > 1 ? 's' : ''}!`
-        : 'EMP PULSE — No Electronics in Range'
-    );
+    if (bossMessage) {
+      this.onToast(bossMessage);
+    } else {
+      this.onToast(
+        affected > 0
+          ? `EMP GLOVE DISCHARGE — Disabled ${affected} Security Device${affected > 1 ? 's' : ''}!`
+          : 'EMP GLOVE DISCHARGE — No Electronics in Range'
+      );
+    }
     return true;
   }
 
@@ -124,7 +135,6 @@ export class AbilitySystem {
     const px = this.player.x;
     const py = this.player.y;
 
-    // Find closest hackable terminal within range
     let closestTerm: Terminal | undefined;
     let minDist = this.HACK_RANGE;
 
@@ -143,7 +153,6 @@ export class AbilitySystem {
       return true;
     }
 
-    // Also allow hacking the Core Guardian directly when its Core is exposed (Phase 3) or close
     if (
       boss &&
       !boss.isDefeated() &&
@@ -152,12 +161,12 @@ export class AbilitySystem {
       this.hackCooldownMs = this.HACK_COOLDOWN;
       AudioSystem.playHack();
       this.drawBeamEffect(px, py, boss.x, boss.y, 0x10b981);
-      boss.takeDamage(1, 'Direct Cyber Hack');
-      this.onToast('DIRECT HACK EXECUTED ON CORE GUARDIAN!');
+      const res = boss.takeAbilityDamage('HACK');
+      this.onToast(res.message);
       return true;
     }
 
-    this.onToast('Move closer to an Offline Terminal to use [3] Hack / [E]');
+    this.onToast('Contextual Hack [3 / E]: Stand near an Offline Terminal to Hack.');
     return false;
   }
 
@@ -196,22 +205,27 @@ export class AbilitySystem {
       }
     });
 
+    let bossMessage: string | null = null;
     if (
       boss &&
       !boss.isDefeated() &&
-      Phaser.Math.Distance.Between(px, py, boss.x, boss.y) <= this.GLITCH_RADIUS + 25
+      Phaser.Math.Distance.Between(px, py, boss.x, boss.y) <= this.GLITCH_RADIUS + 35
     ) {
-      if (boss.takeDamage(1, 'Glitch Pulse')) {
-        disrupted++;
-      }
+      const res = boss.takeAbilityDamage('GLITCH');
+      bossMessage = res.message;
+      if (res.damaged) disrupted++;
     }
 
     this.spawnExpandingRing(px, py, this.GLITCH_RADIUS, 0xf43f5e);
-    this.onToast(
-      disrupted > 0
-        ? `GLITCH PULSE — Disrupted & Reversed ${disrupted} Target${disrupted > 1 ? 's' : ''}!`
-        : 'GLITCH PULSE — No Targets in Range'
-    );
+    if (bossMessage) {
+      this.onToast(bossMessage);
+    } else {
+      this.onToast(
+        disrupted > 0
+          ? `GLITCH PULSE — Disrupted & Reversed ${disrupted} Target${disrupted > 1 ? 's' : ''}!`
+          : 'GLITCH PULSE — No Targets in Range'
+      );
+    }
     return true;
   }
 
@@ -262,6 +276,7 @@ export class AbilitySystem {
   }
 
   public getStatusList(): AbilityStatus[] {
+    const hasEmpGlove = this.player.getActiveTool() === 'EMP';
     return [
       {
         id: 'shield',
@@ -275,16 +290,18 @@ export class AbilitySystem {
       {
         id: 'emp',
         key: '2',
-        name: 'EMP',
+        name: 'EMP Pulse',
         cooldownRemaining: Math.ceil(this.empCooldownMs / 100) / 10,
         cooldownTotal: this.EMP_COOLDOWN / 1000,
         activeRemaining: 0,
-        isReady: this.empCooldownMs <= 0
+        isReady: this.empCooldownMs <= 0 && hasEmpGlove,
+        requiresTool: true,
+        toolAvailable: hasEmpGlove
       },
       {
         id: 'hack',
         key: '3',
-        name: 'Hack',
+        name: 'Hack [E]',
         cooldownRemaining: Math.ceil(this.hackCooldownMs / 100) / 10,
         cooldownTotal: this.HACK_COOLDOWN / 1000,
         activeRemaining: 0,

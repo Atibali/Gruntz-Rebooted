@@ -1,3 +1,8 @@
+import { ToolType } from '../systems/GameEvents';
+import { ToolStationConfig } from '../objects/ToolStation';
+import { CorruptedWallConfig } from '../objects/CorruptedWall';
+import { SoftDataConfig } from '../objects/SoftDataBlock';
+
 export const TILE_SIZE = 48;
 
 export interface GridPos {
@@ -74,18 +79,22 @@ export interface WorldHintConfig {
   text: string;
 }
 
+export interface SecurityEscalationConfig {
+  triggerAtCount: number;
+  alertMessage: string;
+  activateLaserIds?: string[];
+  openDoorIds?: string[];
+  spawnEnemies?: EnemyConfig[];
+  partiallyAwakenBoss?: boolean;
+}
+
 export interface LevelConfig {
   levelNumber: 1 | 2 | 3;
   name: string;
   subtitle: string;
   objective: string;
   shardsRequired: number;
-  /**
-   * Legend for ascii map:
-   * '#' = Wall
-   * '.' = Floor
-   * '~' = Void / Data Chasm (impassable unless Platform is active on that tile)
-   */
+  initialTool?: ToolType;
   map: string[];
   playerStart: GridPos;
   exitPos: GridPos;
@@ -97,6 +106,10 @@ export interface LevelConfig {
   platforms: PlatformConfig[];
   hazards: HazardConfig[];
   enemies: EnemyConfig[];
+  toolStations: ToolStationConfig[];
+  corruptedWalls: CorruptedWallConfig[];
+  softDataBlocks: SoftDataConfig[];
+  escalations: SecurityEscalationConfig[];
   boss?: BossConfig;
   hints: WorldHintConfig[];
 }
@@ -105,20 +118,21 @@ export const LEVELS: Record<1 | 2 | 3, LevelConfig> = {
   1: {
     levelNumber: 1,
     name: 'LEVEL 1 — BOOT SECTOR',
-    subtitle: 'System Initialization & Diagnostics',
-    objective: 'Activate the Switch & Terminal, collect 1 Data Shard, and enter the Exit Portal.',
+    subtitle: 'Tool Calibration & Core Fragment Recovery',
+    objective: 'Find the Tool Station, equip DATA HAMMER to break the Corrupted Wall, recover 1 Core Fragment, and escape.',
     shardsRequired: 1,
+    initialTool: 'NONE',
     map: [
       '##################',
+      '#......#.....#...#',
       '#......#.........#',
-      '#......#.........#',
-      '#......D.........#',
-      '#......#.........#',
+      '#......D.....#...#',
+      '#......#.....#...#',
       '#####.#######~~###',
       '#...........#....#',
       '#...........#....#',
       '#...........###D##',
-      '#...........#....#',
+      '#................#',
       '#...........#....#',
       '#...........#....#',
       '##################'
@@ -128,7 +142,8 @@ export const LEVELS: Record<1 | 2 | 3, LevelConfig> = {
     shards: [{ col: 15, row: 2 }],
     doors: [
       { id: 'door_boot_1', col: 7, row: 3, initiallyOpen: false },
-      { id: 'door_boot_2', col: 15, row: 8, initiallyOpen: false }
+      { id: 'door_boot_2', col: 15, row: 8, initiallyOpen: false },
+      { id: 'door_boot_shortcut', col: 12, row: 9, initiallyOpen: false }
     ],
     switches: [
       {
@@ -137,40 +152,72 @@ export const LEVELS: Record<1 | 2 | 3, LevelConfig> = {
         row: 8,
         targetIds: ['door_boot_1'],
         label: 'SW-01',
-        message: 'Switch Activated: Upper Security Door Opened'
+        message: 'Switch Activated: Diagnostics Bay Door Opened'
       }
     ],
     terminals: [
       {
         id: 'term_boot_1',
-        col: 10,
+        col: 11,
         row: 2,
         targetIds: ['plat_boot_1', 'plat_boot_2', 'door_boot_2'],
         label: 'TERM-01',
         message: 'Terminal Hacked: Holo-Bridge & Exit Gate Online'
       }
     ],
-    lasers: [],
+    lasers: [
+      {
+        id: 'laser_boot_esc',
+        col: 8,
+        row: 6,
+        lengthTiles: 3,
+        direction: 'horizontal',
+        initiallyActive: false
+      }
+    ],
     platforms: [
       { id: 'plat_boot_1', col: 13, row: 5, initiallyActive: false },
       { id: 'plat_boot_2', col: 14, row: 5, initiallyActive: false }
     ],
     hazards: [],
     enemies: [],
+    toolStations: [
+      {
+        id: 'ts_boot_1',
+        col: 9,
+        row: 2,
+        availableTools: ['HAMMER', 'SHOVEL']
+      }
+    ],
+    corruptedWalls: [
+      { id: 'cw_boot_1', col: 13, row: 2 }
+    ],
+    softDataBlocks: [
+      { id: 'sd_boot_1', col: 12, row: 9 }
+    ],
+    escalations: [
+      {
+        triggerAtCount: 1,
+        alertMessage: 'CORE FRAGMENT RECOVERED — WARNING: SECURITY PROTOCOL ACTIVATED!',
+        activateLaserIds: ['laser_boot_esc'],
+        openDoorIds: ['door_boot_2', 'door_boot_shortcut']
+      }
+    ],
     hints: [
-      { col: 3, row: 4, text: 'WASD / Arrows to Move' },
-      { col: 4, row: 10, text: 'Step on Switch to Open Door' },
-      { col: 10, row: 4, text: 'Press [E] or [3] Hack near Terminal' },
-      { col: 14, row: 7, text: 'Collect Shard to Unlock Exit' }
+      { col: 3, row: 4, text: '1. Step on SW-01 below to open Door' },
+      { col: 9, row: 4, text: '2. Press [E] at Tool Station → Take HAMMER' },
+      { col: 13, row: 1, text: '3. Press [SPACE/E] with HAMMER to break Wall' },
+      { col: 14, row: 7, text: '4. Cross Bridge & Escape to Exit Portal' }
     ]
   },
 
   2: {
     levelNumber: 2,
     name: 'LEVEL 2 — FIREWALL FACTORY',
-    subtitle: 'Packet Security & Active Countermeasures',
-    objective: 'Use Shield [1] & EMP [2] to bypass security, collect 2 Data Shards, and reach the Exit.',
+    subtitle: 'Strategic Tool Selection & Security Escalation',
+    objective: 'Swap tools at Tool Stations (1 at a time) to breach Upper & Lower Vaults, recover 2 Core Fragments, and escape.',
     shardsRequired: 2,
+    initialTool: 'NONE',
     map: [
       '####################',
       '#.....#......#.....#',
@@ -194,7 +241,7 @@ export const LEVELS: Record<1 | 2 | 3, LevelConfig> = {
       { col: 2, row: 11 }
     ],
     doors: [
-      { id: 'door_fw_upper', col: 13, row: 3, initiallyOpen: false },
+      { id: 'door_fw_upper', col: 13, row: 3, initiallyOpen: true },
       { id: 'door_fw_lower', col: 6, row: 10, initiallyOpen: false }
     ],
     switches: [
@@ -202,9 +249,9 @@ export const LEVELS: Record<1 | 2 | 3, LevelConfig> = {
         id: 'sw_fw_1',
         col: 8,
         row: 2,
-        targetIds: ['door_fw_upper', 'laser_fw_3'],
+        targetIds: ['laser_fw_2'],
         label: 'SW-FW1',
-        message: 'Firewall Switch: Shard Vault #1 Unlocked'
+        message: 'Firewall Switch: Upper Laser Barrier Offline'
       },
       {
         id: 'sw_fw_2',
@@ -212,7 +259,7 @@ export const LEVELS: Record<1 | 2 | 3, LevelConfig> = {
         row: 11,
         targetIds: ['door_fw_lower'],
         label: 'SW-FW2',
-        message: 'Assembly Switch: Shard Vault #2 Unlocked'
+        message: 'Assembly Switch: Lower Fragment Vault Unlocked'
       }
     ],
     terminals: [
@@ -228,7 +275,7 @@ export const LEVELS: Record<1 | 2 | 3, LevelConfig> = {
     lasers: [
       { id: 'laser_fw_1', col: 6, row: 6, lengthTiles: 2, direction: 'vertical', initiallyActive: true },
       { id: 'laser_fw_2', col: 9, row: 3, lengthTiles: 3, direction: 'horizontal', initiallyActive: true },
-      { id: 'laser_fw_3', col: 14, row: 6, lengthTiles: 2, direction: 'vertical', initiallyActive: true },
+      { id: 'laser_fw_3', col: 14, row: 6, lengthTiles: 2, direction: 'vertical', initiallyActive: false },
       { id: 'laser_fw_exit', col: 15, row: 8, lengthTiles: 3, direction: 'horizontal', initiallyActive: true }
     ],
     platforms: [],
@@ -252,19 +299,63 @@ export const LEVELS: Record<1 | 2 | 3, LevelConfig> = {
         row: 2
       }
     ],
+    toolStations: [
+      {
+        id: 'ts_fw_west',
+        col: 4,
+        row: 6,
+        availableTools: ['HAMMER', 'EMP', 'SHOVEL', 'DECOY']
+      },
+      {
+        id: 'ts_fw_center',
+        col: 10,
+        row: 6,
+        availableTools: ['HAMMER', 'EMP', 'SHOVEL', 'DECOY']
+      }
+    ],
+    corruptedWalls: [
+      { id: 'cw_fw_upper', col: 13, row: 3 }
+    ],
+    softDataBlocks: [
+      { id: 'sd_fw_lower', col: 9, row: 8 }
+    ],
+    escalations: [
+      {
+        triggerAtCount: 1,
+        alertMessage: 'CORE FRAGMENT 1/2 EXTRACTED — WARNING: EAST FIREWALL LASER ACTIVATED!',
+        activateLaserIds: ['laser_fw_3']
+      },
+      {
+        triggerAtCount: 2,
+        alertMessage: 'ALL FRAGMENTS EXTRACTED — SECURITY ESCALATED: HUNTER DRONE DEPLOYED! ESCAPE TO EXIT!',
+        activateLaserIds: ['laser_fw_3'],
+        spawnEnemies: [
+          {
+            id: 'drone_fw_esc',
+            type: 'drone',
+            col: 11,
+            row: 6,
+            patrolEndCol: 16,
+            patrolEndRow: 6
+          }
+        ]
+      }
+    ],
     hints: [
-      { col: 4, row: 6, text: 'Press [1] Shield or [2] EMP to pass Lasers' },
-      { col: 10, row: 9, text: 'Use [2] EMP or [4] Glitch Pulse on Drones' },
-      { col: 16, row: 5, text: 'Hack Terminal [E]/[3] to disable Exit Laser' }
+      { col: 4, row: 7, text: 'Tool Station [E]: Carry 1 Tool at a time' },
+      { col: 13, row: 4, text: 'Upper Route: Needs DATA HAMMER' },
+      { col: 9, row: 9, text: 'Lower Route: Needs SHOVEL + DECOY or EMP GLOVE' },
+      { col: 16, row: 5, text: 'Hack Terminal [E] or use Shield [1] to Escape' }
     ]
   },
 
   3: {
     levelNumber: 3,
     name: 'LEVEL 3 — CORE BREACH',
-    subtitle: 'Central System Kernel & Guardian Purge',
-    objective: 'Collect 3 Data Shards and defeat the Corrupted Core Guardian to unlock the System Core.',
+    subtitle: 'Central System Kernel & Core Guardian Purge',
+    objective: 'Use Tools & Abilities to recover 3 Core Fragments, activate Surge Nodes, and purge the Core Guardian.',
     shardsRequired: 3,
+    initialTool: 'NONE',
     map: [
       '######################',
       '#....#..........#....#',
@@ -291,7 +382,7 @@ export const LEVELS: Record<1 | 2 | 3, LevelConfig> = {
       { col: 10, row: 13 }
     ],
     doors: [
-      { id: 'door_core_west', col: 5, row: 3, initiallyOpen: false },
+      { id: 'door_core_west', col: 5, row: 3, initiallyOpen: true },
       { id: 'door_core_east', col: 16, row: 3, initiallyOpen: false },
       { id: 'door_core_boss1', col: 10, row: 8, initiallyOpen: false },
       { id: 'door_core_boss2', col: 11, row: 8, initiallyOpen: false }
@@ -301,25 +392,33 @@ export const LEVELS: Record<1 | 2 | 3, LevelConfig> = {
         id: 'sw_core_west',
         col: 7,
         row: 4,
-        targetIds: ['door_core_west', 'plat_core_west1', 'plat_core_west2'],
-        label: 'SW-W',
-        message: 'West Sector Switch: Bridge & Vault Open'
+        targetIds: ['plat_core_west1', 'plat_core_west2'],
+        label: 'SW-WEST',
+        message: 'West Holo-Bridge Activated'
       },
       {
         id: 'sw_core_gate',
         col: 3,
         row: 7,
         targetIds: ['door_core_boss1', 'door_core_boss2'],
-        label: 'SW-CORE',
+        label: 'SW-GATE',
         message: 'Core Blast Gates Opened!'
       },
       {
-        id: 'sw_boss_surge',
+        id: 'sw_boss_surge_1',
         col: 4,
         row: 12,
         targetIds: ['laser_core_boss'],
-        label: 'SURGE-NODE',
-        message: 'Surge Triggered: Guardian Armor Disrupted!'
+        label: 'SURGE-NODE-1',
+        message: 'Surge Node #1 Triggered!'
+      },
+      {
+        id: 'sw_boss_surge_2',
+        col: 17,
+        row: 11,
+        targetIds: [],
+        label: 'SURGE-NODE-2',
+        message: 'Surge Node #2 Triggered!'
       }
     ],
     terminals: [
@@ -328,21 +427,21 @@ export const LEVELS: Record<1 | 2 | 3, LevelConfig> = {
         col: 14,
         row: 4,
         targetIds: ['door_core_east', 'plat_core_east1', 'plat_core_east2', 'laser_core_east'],
-        label: 'TERM-E',
+        label: 'TERM-EAST',
         message: 'East Terminal Hacked: East Vault & Bridge Ready'
       },
       {
         id: 'term_boss_purge',
         col: 17,
-        row: 12,
+        row: 13,
         targetIds: [],
         label: 'CORE-PURGE',
-        message: 'Executing System Core Purge Strike!',
+        message: 'Executing System Core Purge!',
         isBossPurge: true
       }
     ],
     lasers: [
-      { id: 'laser_core_west', col: 2, row: 6, lengthTiles: 3, direction: 'horizontal', initiallyActive: true },
+      { id: 'laser_core_west', col: 2, row: 6, lengthTiles: 3, direction: 'horizontal', initiallyActive: false },
       { id: 'laser_core_east', col: 17, row: 6, lengthTiles: 3, direction: 'horizontal', initiallyActive: true },
       { id: 'laser_core_boss', col: 9, row: 10, lengthTiles: 4, direction: 'horizontal', initiallyActive: true }
     ],
@@ -382,15 +481,56 @@ export const LEVELS: Record<1 | 2 | 3, LevelConfig> = {
         row: 3
       }
     ],
+    toolStations: [
+      {
+        id: 'ts_core_upper',
+        col: 10,
+        row: 4,
+        availableTools: ['HAMMER', 'EMP', 'SHOVEL', 'DECOY']
+      },
+      {
+        id: 'ts_core_arena',
+        col: 10,
+        row: 9,
+        availableTools: ['HAMMER', 'EMP', 'SHOVEL', 'DECOY']
+      }
+    ],
+    corruptedWalls: [
+      { id: 'cw_core_west', col: 5, row: 3 },
+      { id: 'cw_core_surge1', col: 4, row: 11 }
+    ],
+    softDataBlocks: [
+      { id: 'sd_core_east', col: 18, row: 2 },
+      { id: 'sd_core_surge2', col: 16, row: 11 }
+    ],
+    escalations: [
+      {
+        triggerAtCount: 1,
+        alertMessage: 'CORE FRAGMENT 1/3 RECOVERED — WARNING: WEST LASER GRID ENGAGED!',
+        activateLaserIds: ['laser_core_west']
+      },
+      {
+        triggerAtCount: 2,
+        alertMessage: 'CORE FRAGMENT 2/3 RECOVERED — CORE GUARDIAN ONLINE! BLAST GATES OPENED!',
+        openDoorIds: ['door_core_boss1', 'door_core_boss2'],
+        partiallyAwakenBoss: true
+      },
+      {
+        triggerAtCount: 3,
+        alertMessage: 'ALL CORE FRAGMENTS RECOVERED — DEFEAT CORE GUARDIAN TO UNLOCK SYSTEM CORE!',
+        openDoorIds: ['door_core_boss1', 'door_core_boss2']
+      }
+    ],
     boss: {
       col: 11,
       row: 11,
       maxHp: 4
     },
     hints: [
-      { col: 10, row: 4, text: 'Unlock West & East Vaults for Shards 1 & 2' },
-      { col: 4, row: 10, text: 'Step on SURGE-NODE or use [2] EMP / [4] Glitch on Boss' },
-      { col: 17, row: 10, text: 'Use [E] or [3] Hack at CORE-PURGE Terminal!' }
+      { col: 10, row: 5, text: 'Use Tool Station [E] to swap HAMMER / SHOVEL / EMP / DECOY' },
+      { col: 4, row: 10, text: 'Phase 1: Break Wall & Step on 2 SURGE NODES' },
+      { col: 11, row: 9, text: 'Phase 2: Equip EMP GLOVE [2] or use GLITCH [4] on Boss' },
+      { col: 17, row: 12, text: 'Phase 3: Hack CORE-PURGE Terminal [E]/[3]!' }
     ]
   }
 };

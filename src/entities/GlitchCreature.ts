@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { EnemyConfig, TILE_SIZE } from '../config/levels';
+import { DecoyBeacon } from '../objects/DecoyBeacon';
 
 export class GlitchCreature extends Phaser.Physics.Arcade.Sprite {
   public readonly enemyId: string;
@@ -60,7 +61,12 @@ export class GlitchCreature extends Phaser.Physics.Arcade.Sprite {
     return this.stunTimer <= 0;
   }
 
-  public update(delta: number, playerX: number, playerY: number) {
+  public update(
+    delta: number,
+    playerX: number,
+    playerY: number,
+    activeDecoys: DecoyBeacon[] = []
+  ) {
     this.statusLabel.setPosition(this.x, this.y - 24);
 
     if (this.stunTimer > 0) {
@@ -74,6 +80,30 @@ export class GlitchCreature extends Phaser.Physics.Arcade.Sprite {
 
     if (this.reverseTimer > 0) {
       this.reverseTimer = Math.max(0, this.reverseTimer - delta);
+    }
+
+    // Check if lured by Glitch Decoy
+    let nearestDecoy: DecoyBeacon | undefined;
+    let nearestDecoyDist = 240;
+    activeDecoys.forEach((decoy) => {
+      if (!decoy.isActive()) return;
+      const d = Phaser.Math.Distance.Between(this.x, this.y, decoy.x, decoy.y);
+      if (d <= nearestDecoyDist) {
+        nearestDecoyDist = d;
+        nearestDecoy = decoy;
+      }
+    });
+
+    if (nearestDecoy) {
+      this.statusLabel.setText('LURED TO DECOY');
+      this.statusLabel.setColor('#38bdf8');
+      if (nearestDecoyDist > 20) {
+        const angle = Phaser.Math.Angle.Between(this.x, this.y, nearestDecoy.x, nearestDecoy.y);
+        this.setVelocity(Math.cos(angle) * 95, Math.sin(angle) * 95);
+      } else {
+        this.setVelocity(0, 0);
+      }
+      return;
     }
 
     const dist = Phaser.Math.Distance.Between(this.x, this.y, playerX, playerY);
@@ -90,11 +120,10 @@ export class GlitchCreature extends Phaser.Physics.Arcade.Sprite {
     );
     this.statusLabel.setColor(this.reverseTimer > 0 ? '#fbbf24' : '#fb7185');
 
-    // Grid-aligned / axial movement preference inspired by classic Gruntz
     if (Math.abs(dx) > Math.abs(dy)) {
-      this.setVelocity(Math.sign(dx) * speed, (Math.sign(dy) * speed) * 0.35);
+      this.setVelocity(Math.sign(dx) * speed, Math.sign(dy) * speed * 0.35);
     } else if (Math.abs(dy) > 4) {
-      this.setVelocity((Math.sign(dx) * speed) * 0.35, Math.sign(dy) * speed);
+      this.setVelocity(Math.sign(dx) * speed * 0.35, Math.sign(dy) * speed);
     } else {
       this.setVelocity(0, 0);
     }

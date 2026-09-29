@@ -1,13 +1,14 @@
 import Phaser from 'phaser';
 import { EnemyConfig, TILE_SIZE } from '../config/levels';
 import { AudioSystem } from '../systems/AudioSystem';
+import { DecoyBeacon } from '../objects/DecoyBeacon';
 
 export class SecurityDrone extends Phaser.Physics.Arcade.Sprite {
   public readonly enemyId: string;
   private pointA: { x: number; y: number };
   private pointB: { x: number; y: number };
   private targetPoint: { x: number; y: number };
-  private aiState: 'PATROL' | 'CHASE' | 'DISABLED' = 'PATROL';
+  private aiState: 'PATROL' | 'CHASE' | 'DISTRACTED' | 'DISABLED' = 'PATROL';
   private disableTimer: number = 0;
   private reverseMultiplier: number = 1;
   private reverseTimer: number = 0;
@@ -74,7 +75,12 @@ export class SecurityDrone extends Phaser.Physics.Arcade.Sprite {
     return this.disableTimer <= 0;
   }
 
-  public update(delta: number, playerX: number, playerY: number) {
+  public update(
+    delta: number,
+    playerX: number,
+    playerY: number,
+    activeDecoys: DecoyBeacon[] = []
+  ) {
     this.statusLabel.setPosition(this.x, this.y - 24);
     this.sensorRing.clear();
 
@@ -97,6 +103,34 @@ export class SecurityDrone extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
+    // Check if distracted by a Glitch Decoy within 240px
+    let nearestDecoy: DecoyBeacon | undefined;
+    let nearestDecoyDist = 240;
+    activeDecoys.forEach((decoy) => {
+      if (!decoy.isActive()) return;
+      const d = Phaser.Math.Distance.Between(this.x, this.y, decoy.x, decoy.y);
+      if (d <= nearestDecoyDist) {
+        nearestDecoyDist = d;
+        nearestDecoy = decoy;
+      }
+    });
+
+    if (nearestDecoy) {
+      this.aiState = 'DISTRACTED';
+      this.statusLabel.setText('DISTRACTED!');
+      this.statusLabel.setColor('#38bdf8');
+      this.sensorRing.lineStyle(1.5, 0x38bdf8, 0.45);
+      this.sensorRing.strokeCircle(this.x, this.y, 135);
+
+      if (nearestDecoyDist > 22) {
+        const angle = Phaser.Math.Angle.Between(this.x, this.y, nearestDecoy.x, nearestDecoy.y);
+        this.setVelocity(Math.cos(angle) * 98, Math.sin(angle) * 98);
+      } else {
+        this.setVelocity(0, 0);
+      }
+      return;
+    }
+
     const distToPlayer = Phaser.Math.Distance.Between(this.x, this.y, playerX, playerY);
     const detectRadius = 135;
 
@@ -105,11 +139,13 @@ export class SecurityDrone extends Phaser.Physics.Arcade.Sprite {
         this.aiState = 'CHASE';
         AudioSystem.playEnemyAlert();
       }
-    } else if (this.aiState === 'CHASE' && distToPlayer > detectRadius * 1.35) {
+    } else if (
+      (this.aiState === 'CHASE' || this.aiState === 'DISTRACTED') &&
+      distToPlayer > detectRadius * 1.35
+    ) {
       this.aiState = 'PATROL';
     }
 
-    // Draw detection ring
     this.sensorRing.lineStyle(
       1,
       this.aiState === 'CHASE' ? 0xef4444 : 0xf59e0b,

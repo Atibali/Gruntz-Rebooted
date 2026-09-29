@@ -4,6 +4,7 @@ import { GridPos, TILE_SIZE } from '../config/levels';
 export class Exit extends Phaser.Physics.Arcade.Sprite {
   private unlocked: boolean = false;
   private labelText: Phaser.GameObjects.Text;
+  private subLabelText: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, pos: GridPos, isFinalCore: boolean = false) {
     const x = pos.col * TILE_SIZE + TILE_SIZE / 2;
@@ -15,7 +16,7 @@ export class Exit extends Phaser.Physics.Arcade.Sprite {
     this.setDepth(4);
 
     this.labelText = scene.add
-      .text(x, y - 32, isFinalCore ? 'SYSTEM CORE: LOCKED' : 'EXIT: LOCKED', {
+      .text(x, y - 34, isFinalCore ? 'SYSTEM CORE: LOCKED' : 'EXIT: LOCKED', {
         fontFamily: 'JetBrains Mono, monospace',
         fontSize: '10px',
         color: '#f87171',
@@ -24,9 +25,23 @@ export class Exit extends Phaser.Physics.Arcade.Sprite {
       })
       .setOrigin(0.5)
       .setDepth(14);
+
+    this.subLabelText = scene.add
+      .text(x, y + 32, 'RECOVER CORE FRAGMENTS', {
+        fontFamily: 'JetBrains Mono, monospace',
+        fontSize: '8px',
+        color: '#fbbf24',
+        backgroundColor: '#090d16cc',
+        padding: { x: 3, y: 1 }
+      })
+      .setOrigin(0.5)
+      .setDepth(14);
   }
 
-  public setUnlocked(unlocked: boolean, isFinalCore: boolean = false) {
+  public setUnlocked(unlocked: boolean, isFinalCore: boolean = false, lockReason: string = '') {
+    this.subLabelText.setText(unlocked ? 'STEP ON PORTAL TO EXIT' : lockReason);
+    this.subLabelText.setColor(unlocked ? '#34d399' : '#fbbf24');
+
     if (this.unlocked === unlocked) return;
     this.unlocked = unlocked;
     this.setTexture(unlocked ? 'exit_unlocked' : 'exit_locked');

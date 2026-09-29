@@ -4,6 +4,7 @@ import { AudioSystem } from '../systems/AudioSystem';
 
 export class DataShard extends Phaser.Physics.Arcade.Sprite {
   private collected: boolean = false;
+  private labelText: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, pos: GridPos) {
     const x = pos.col * TILE_SIZE + TILE_SIZE / 2;
@@ -14,7 +15,17 @@ export class DataShard extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this, true);
     this.setDepth(8);
 
-    // Floating pulse animation
+    this.labelText = scene.add
+      .text(x, y - 24, 'CORE FRAGMENT', {
+        fontFamily: 'JetBrains Mono, monospace',
+        fontSize: '8px',
+        color: '#fbbf24',
+        backgroundColor: '#090d16cc',
+        padding: { x: 3, y: 1 }
+      })
+      .setOrigin(0.5)
+      .setDepth(13);
+
     scene.tweens.add({
       targets: this,
       y: y - 5,
@@ -36,18 +47,18 @@ export class DataShard extends Phaser.Physics.Arcade.Sprite {
       body.enable = false;
     }
 
+    this.labelText.destroy();
     AudioSystem.playDataCollect();
 
-    // Particle burst
     const particles = this.scene.add.particles(this.x, this.y, 'particle_square', {
-      speed: { min: 50, max: 140 },
-      scale: { start: 1.1, end: 0 },
-      lifespan: 420,
+      speed: { min: 55, max: 155 },
+      scale: { start: 1.2, end: 0 },
+      lifespan: 450,
       tint: [0xfbbf24, 0x34d399, 0x38bdf8],
-      quantity: 16,
+      quantity: 20,
       emitting: false
     });
-    particles.explode(16);
+    particles.explode(20);
     this.scene.time.delayedCall(500, () => particles.destroy());
 
     this.scene.tweens.add({

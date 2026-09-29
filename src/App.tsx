@@ -4,27 +4,55 @@ import { BootScene } from './scenes/BootScene';
 import { Level1Scene } from './scenes/Level1Scene';
 import { Level2Scene } from './scenes/Level2Scene';
 import { Level3Scene } from './scenes/Level3Scene';
-import { gameEvents, GameState, HudSnapshot } from './systems/GameEvents';
+import { gameEvents, GameState, HudSnapshot, ToolType } from './systems/GameEvents';
 import { AudioSystem } from './systems/AudioSystem';
 import { HUD } from './ui/HUD';
 import { AbilityBar } from './ui/AbilityBar';
 import { PauseMenu } from './ui/PauseMenu';
-import { Play, Shield, Zap, Terminal, Sparkles, RotateCcw, ArrowRight, Keyboard, CheckCircle2, AlertTriangle } from 'lucide-react';
+import {
+  Play,
+  Shield,
+  Zap,
+  Terminal,
+  Sparkles,
+  Hammer,
+  Shovel,
+  Radio,
+  RotateCcw,
+  ArrowRight,
+  Keyboard,
+  CheckCircle2,
+  AlertTriangle
+} from 'lucide-react';
 
 const INITIAL_HUD: HudSnapshot = {
   levelNumber: 1,
   levelName: 'LEVEL 1 — BOOT SECTOR',
-  levelSubtitle: 'System Initialization & Diagnostics',
-  objectiveText: 'Activate the Switch & Terminal, collect 1 Data Shard, and enter the Exit Portal.',
+  levelSubtitle: 'Tool Calibration & Core Fragment Recovery',
+  objectiveText:
+    'Find the Tool Station, equip DATA HAMMER to break the Corrupted Wall, recover 1 Core Fragment, and escape.',
   hp: 3,
   maxHp: 3,
   shardsCollected: 0,
   shardsRequired: 1,
   exitUnlocked: false,
+  exitLockReason: 'LOCKED: RECOVER 1 MORE CORE FRAGMENT (0/1)',
+  activeTool: 'NONE',
+  securityAlertLevel: 0,
   abilities: [
     { id: 'shield', key: '1', name: 'Shield', cooldownRemaining: 0, cooldownTotal: 6, activeRemaining: 0, isReady: true },
-    { id: 'emp', key: '2', name: 'EMP', cooldownRemaining: 0, cooldownTotal: 5, activeRemaining: 0, isReady: true },
-    { id: 'hack', key: '3', name: 'Hack', cooldownRemaining: 0, cooldownTotal: 2.5, activeRemaining: 0, isReady: true },
+    {
+      id: 'emp',
+      key: '2',
+      name: 'EMP Pulse',
+      cooldownRemaining: 0,
+      cooldownTotal: 5,
+      activeRemaining: 0,
+      isReady: false,
+      requiresTool: true,
+      toolAvailable: false
+    },
+    { id: 'hack', key: '3', name: 'Hack [E]', cooldownRemaining: 0, cooldownTotal: 2.5, activeRemaining: 0, isReady: true },
     { id: 'glitch', key: '4', name: 'Glitch', cooldownRemaining: 0, cooldownTotal: 4, activeRemaining: 0, isReady: true }
   ],
   nearbyPrompt: null,
@@ -35,7 +63,14 @@ const INITIAL_HUD: HudSnapshot = {
     hp: 4,
     maxHp: 4,
     phase: 1,
-    statusHint: ''
+    statusHint: '',
+    surgeNodesRemaining: 2
+  },
+  toolStationModal: {
+    isOpen: false,
+    stationId: '',
+    availableTools: [],
+    currentTool: 'NONE'
   }
 };
 
@@ -193,6 +228,14 @@ export default function App() {
     setGameState('MAIN_MENU');
   };
 
+  const handleSelectToolFromModal = (tool: ToolType) => {
+    gameEvents.emit('ui-select-tool', tool);
+  };
+
+  const handleCloseToolModal = () => {
+    gameEvents.emit('ui-close-tool-modal');
+  };
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#070B12] text-slate-100 select-none">
       {/* Phaser 3 WebGL/Canvas Viewport */}
@@ -201,7 +244,7 @@ export default function App() {
       {/* Subtle CRT Scanline Overlay */}
       <div className="crt-scanlines pointer-events-none fixed inset-0 z-10 opacity-35" />
 
-      {/* Active Gameplay HUD & Bottom Ability Bar */}
+      {/* Active Gameplay HUD & Bottom Bar */}
       {(gameState === 'PLAYING' || gameState === 'PAUSED') && (
         <>
           <HUD
@@ -211,10 +254,14 @@ export default function App() {
             onPause={handlePause}
             onRestart={handleRestartLevel}
             onSelectLevel={(lvl) => startOrSwitchLevel(lvl)}
+            onSelectToolFromModal={handleSelectToolFromModal}
+            onCloseToolModal={handleCloseToolModal}
           />
           <AbilityBar
+            activeTool={hud.activeTool}
             abilities={hud.abilities}
             nearbyPrompt={hud.nearbyPrompt}
+            onUseActiveTool={() => gameEvents.emit('ui-use-tool')}
             onTriggerAbility={(id) => gameEvents.emit('ui-ability', id)}
             onTriggerInteract={() => gameEvents.emit('ui-interact')}
             onMoveDir={(dx, dy) => gameEvents.emit('ui-move', { x: dx, y: dy })}
@@ -228,7 +275,7 @@ export default function App() {
           <div className="w-full max-w-2xl rounded-2xl border border-slate-800 bg-[#0B121E] p-8 md:p-10 shadow-2xl">
             <div className="text-center">
               <p className="font-mono-tabular text-xs font-semibold tracking-widest text-amber-400">
-                1999 PUZZLE-STRATEGY REIMAGINED · DIGITAL ARCHITECT EDITION
+                1999 PUZZLE-STRATEGY DNA · TOOL & ENVIRONMENT SYSTEM
               </p>
               <h1
                 className="font-display mt-2 text-4xl md:text-5xl font-bold tracking-wider text-emerald-400"
@@ -237,9 +284,9 @@ export default function App() {
                 GRUNTZ: REBOOTED
               </h1>
               <p className="mx-auto mt-3 max-w-lg text-sm text-slate-300 leading-relaxed">
-                Guide a Digital Grunt through a corrupted computer mainframe. Activate circuit
-                switches, hack security terminals, deploy cyber abilities, collect Data Shards, and
-                purge the System Core Guardian.
+                Explore a corrupted computer mainframe, swap physical tools at Tool Stations (one
+                at a time), smash corrupted walls, excavate soft-data paths, lure security drones
+                with Glitch Decoys, recover Core Fragments, and escape security escalation.
               </p>
             </div>
 
@@ -258,7 +305,7 @@ export default function App() {
                 className="flex w-full sm:w-auto min-w-[200px] cursor-pointer items-center justify-center gap-2.5 rounded-xl border border-slate-700 bg-slate-900 px-7 py-3.5 font-display text-base font-semibold text-slate-200 hover:border-slate-600 hover:bg-slate-800 transition-all whitespace-nowrap"
               >
                 <Keyboard className="h-5 w-5 text-amber-400" />
-                <span>{showControlsModal ? 'HIDE CONTROLS' : 'CONTROLS'}</span>
+                <span>{showControlsModal ? 'HIDE CONTROLS' : 'TOOLS & CONTROLS'}</span>
               </button>
             </div>
 
@@ -269,7 +316,7 @@ export default function App() {
                   SELECT SYSTEM SECTOR
                 </span>
                 <span className="font-mono-tabular text-xs text-slate-400">
-                  3 Sectors · 4 Abilities · 1 Core Boss
+                  4 Physical Tools · 4 Abilities · 3 Sectors
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -281,7 +328,7 @@ export default function App() {
                     01. Boot Sector
                   </div>
                   <div className="mt-1 text-xs text-slate-400">
-                    Switches · Doors · 1 Shard
+                    Tool Station · Hammer · 1 Fragment
                   </div>
                 </button>
                 <button
@@ -292,7 +339,7 @@ export default function App() {
                     02. Firewall Factory
                   </div>
                   <div className="mt-1 text-xs text-slate-400">
-                    Lasers · Drones · 2 Shards
+                    Tool Choice · Decoy · 2 Fragments
                   </div>
                 </button>
                 <button
@@ -303,35 +350,64 @@ export default function App() {
                     03. Core Breach
                   </div>
                   <div className="mt-1 text-xs text-slate-400">
-                    Core Guardian Boss · 3 Shards
+                    Surge Nodes · Core Boss · 3 Fragments
                   </div>
                 </button>
               </div>
             </div>
 
-            {/* Expandable Controls & Abilities Panel */}
+            {/* Expandable Controls, Physical Tools & Digital Abilities Panel */}
             {showControlsModal && (
-              <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950/90 p-5">
-                <h2 className="font-display text-sm font-bold text-emerald-400 mb-3">
-                  CONTROLS & DIGITAL ABILITIES
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+              <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950/90 p-5 space-y-5">
+                <div>
+                  <h2 className="font-display text-sm font-bold text-amber-400 mb-2.5">
+                    PHYSICAL TOOLS (CARRY ONE AT A TIME VIA TOOL STATIONS [E])
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div className="flex items-start gap-2.5 text-slate-300">
+                      <Hammer className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                      <span>
+                        <strong className="text-white">Data Hammer:</strong> Breaks cracked Corrupted Walls blocking vaults.
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-slate-300">
+                      <Zap className="h-4 w-4 text-sky-400 shrink-0 mt-0.5" />
+                      <span>
+                        <strong className="text-white">EMP Glove:</strong> Powers [2] EMP blast to disable drones, lasers & traps.
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-slate-300">
+                      <Shovel className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                      <span>
+                        <strong className="text-white">Void Shovel:</strong> Excavates Soft-Data obstacles to reveal alternate paths.
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-slate-300">
+                      <Radio className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                      <span>
+                        <strong className="text-white">Glitch Decoy:</strong> Deploys a fake signal that lures nearby drones away.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-800/80 pt-4 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
                   <div className="space-y-2 font-mono-tabular">
                     <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
-                      <span className="text-amber-400 font-semibold">WASD / ARROWS</span>
+                      <span className="text-emerald-400 font-semibold">WASD / ARROWS</span>
                       <span className="text-slate-200">Move Digital Grunt</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
-                      <span className="text-amber-400 font-semibold">E</span>
-                      <span className="text-slate-200">Interact with Terminal</span>
+                      <span className="text-emerald-400 font-semibold">E</span>
+                      <span className="text-slate-200">Use Tool Station / Terminal</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
-                      <span className="text-amber-400 font-semibold">1 · 2 · 3 · 4</span>
-                      <span className="text-slate-200">Activate Cyber Abilities</span>
+                      <span className="text-emerald-400 font-semibold">SPACE</span>
+                      <span className="text-slate-200">Use Equipped Physical Tool</span>
                     </div>
                     <div className="flex justify-between pb-1">
-                      <span className="text-amber-400 font-semibold">ESC</span>
-                      <span className="text-slate-200">Pause Menu</span>
+                      <span className="text-emerald-400 font-semibold">1 · 2 · 3 · 4</span>
+                      <span className="text-slate-200">Shield · EMP · Hack · Glitch</span>
                     </div>
                   </div>
 
@@ -339,25 +415,25 @@ export default function App() {
                     <div className="flex items-center gap-2 text-slate-300">
                       <Shield className="h-4 w-4 text-sky-400 shrink-0" />
                       <span>
-                        <strong className="text-white">[1] Shield:</strong> 3s barrier against lasers, traps & enemies (6s CD).
+                        <strong className="text-white">[1] Shield:</strong> 3s defensive energy barrier.
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-slate-300">
                       <Zap className="h-4 w-4 text-amber-400 shrink-0" />
                       <span>
-                        <strong className="text-white">[2] EMP:</strong> Disables nearby drones, lasers & traps (5s CD).
+                        <strong className="text-white">[2] EMP:</strong> Discharges EMP Glove pulse.
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-slate-300">
                       <Terminal className="h-4 w-4 text-emerald-400 shrink-0" />
                       <span>
-                        <strong className="text-white">[3] Hack:</strong> Overrides terminals & exposes Core locks.
+                        <strong className="text-white">[3] Hack:</strong> Contextual terminal override.
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-slate-300">
                       <Sparkles className="h-4 w-4 text-rose-400 shrink-0" />
                       <span>
-                        <strong className="text-white">[4] Glitch Pulse:</strong> Stuns & reverses enemies.
+                        <strong className="text-white">[4] Glitch:</strong> Stuns & reverses enemies.
                       </span>
                     </div>
                   </div>
@@ -383,20 +459,20 @@ export default function App() {
           <div className="w-full max-w-md rounded-2xl border border-emerald-500/40 bg-[#0B121E] p-8 text-center shadow-2xl">
             <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-400" />
             <h2 className="font-display mt-3 text-3xl font-bold tracking-wide text-emerald-400">
-              LEVEL COMPLETE
+              SECTOR COMPLETE
             </h2>
             <p className="mt-1 text-xs text-slate-400">{hud.levelName}</p>
 
             <div className="mt-6 space-y-2 rounded-xl border border-slate-800 bg-slate-950/90 p-4 font-mono-tabular text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-400">DATA RECOVERED:</span>
+                <span className="text-slate-400">CORE FRAGMENTS:</span>
                 <span className="font-bold text-amber-400">
                   {hud.shardsCollected} / {hud.shardsRequired}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">SYSTEM STATUS:</span>
-                <span className="font-bold text-emerald-400">STABLE</span>
+                <span className="text-slate-400">SECURITY BYPASSED:</span>
+                <span className="font-bold text-emerald-400">CONFIRMED</span>
               </div>
             </div>
 
@@ -404,7 +480,7 @@ export default function App() {
               onClick={handleNextLevel}
               className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3.5 font-display text-base font-bold text-slate-950 hover:bg-emerald-400 transition-colors whitespace-nowrap"
             >
-              <span>NEXT LEVEL</span>
+              <span>NEXT SECTOR</span>
               <ArrowRight className="h-5 w-5" />
             </button>
           </div>
@@ -448,30 +524,30 @@ export default function App() {
           <div className="w-full max-w-lg rounded-2xl border border-emerald-500/50 bg-[#0B121E] p-8 text-center shadow-2xl">
             <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-400" />
             <p className="mt-3 font-mono-tabular text-xs font-semibold tracking-widest text-amber-400">
-              CORRUPTED CORE GUARDIAN PURGED
+              SYSTEM CORE PURGE: 100%
             </p>
             <h2 className="font-display mt-1 text-3xl md:text-4xl font-bold tracking-wide text-emerald-400">
-              SYSTEM CORE RESTORED!
+              SYSTEM RESTORED!
             </h2>
             <p className="mt-3 text-sm text-slate-300 leading-relaxed">
-              Your Digital Grunt recovered all critical Data Shards across the Boot Sector,
-              Firewall Factory, and Core Breach, neutralizing the Corrupted Core Guardian.
+              Your Digital Grunt mastered the Tool Stations, recovered all Core Fragments across
+              all three sectors, and purged the Corrupted Core Guardian.
             </p>
 
             <div className="mt-6 space-y-2 rounded-xl border border-slate-800 bg-slate-950/90 p-4 font-mono-tabular text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-400">FINAL SECTOR SHARDS:</span>
+                <span className="text-slate-400">CORE FRAGMENTS RECOVERED:</span>
                 <span className="font-bold text-amber-400">
                   {hud.shardsCollected} / {hud.shardsRequired}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">CORE GUARDIAN STATUS:</span>
-                <span className="font-bold text-emerald-400">PURGED</span>
+                <span className="font-bold text-emerald-400">PURGED (100%)</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">MAINFRAME INTEGRITY:</span>
-                <span className="font-bold text-emerald-400">100% ONLINE</span>
+                <span className="text-slate-400">SYSTEM STATUS:</span>
+                <span className="font-bold text-emerald-400">SYSTEM RESTORED</span>
               </div>
             </div>
 

@@ -68,6 +68,13 @@ export class Laser {
     this.drawBeam();
   }
 
+  public activateLaser() {
+    this.permDisabled = false;
+    this.isActive = true;
+    this.emitterSprite.setStrokeStyle(2, 0xef4444);
+    this.drawBeam();
+  }
+
   public toggle() {
     if (this.permDisabled) {
       this.permDisabled = false;

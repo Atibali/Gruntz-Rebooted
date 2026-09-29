@@ -1,12 +1,15 @@
 import Phaser from 'phaser';
 import { BossConfig, TILE_SIZE } from '../config/levels';
 import { AudioSystem } from '../systems/AudioSystem';
+import { DecoyBeacon } from '../objects/DecoyBeacon';
 
 export class CoreGuardian extends Phaser.Physics.Arcade.Sprite {
   private hp: number;
   private maxHp: number;
   private phase: 1 | 2 | 3 = 1;
+  private surgeNodesRemaining: number = 2;
   private defeated: boolean = false;
+  private awakened: boolean = false;
   private stunTimer: number = 0;
   private invulnTimer: number = 0;
   private homeX: number;
@@ -31,20 +34,31 @@ export class CoreGuardian extends Phaser.Physics.Arcade.Sprite {
     this.setDepth(9);
 
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setSize(60, 60);
-    body.setOffset(12, 12);
+    body.setSize(58, 58);
+    body.setOffset(13, 13);
 
     this.pulseRingGraphics = scene.add.graphics().setDepth(6);
     this.statusLabel = scene.add
-      .text(startX, startY - 52, 'CORE GUARDIAN [PHASE 1]', {
+      .text(startX, startY - 52, 'CORE GUARDIAN [PHASE 1: SURGE NODES]', {
         fontFamily: 'JetBrains Mono, monospace',
         fontSize: '10px',
-        color: '#f87171',
+        color: '#fbbf24',
         backgroundColor: '#090d16dd',
         padding: { x: 4, y: 2 }
       })
       .setOrigin(0.5)
       .setDepth(15);
+  }
+
+  public setPartiallyAwakened() {
+    this.awakened = true;
+    this.scene.tweens.add({
+      targets: this,
+      scaleX: 1.12,
+      scaleY: 1.12,
+      yoyo: true,
+      duration: 240
+    });
   }
 
   public getHp(): number {
@@ -59,39 +73,108 @@ export class CoreGuardian extends Phaser.Physics.Arcade.Sprite {
     return this.phase;
   }
 
+  public getSurgeNodesRemaining(): number {
+    return this.surgeNodesRemaining;
+  }
+
   public isDefeated(): boolean {
     return this.defeated;
   }
 
   public getStatusHint(): string {
-    if (this.defeated) return 'GUARDIAN PURGED — SYSTEM CORE UNLOCKED';
+    if (this.defeated) return 'SYSTEM CORE PURGE: 100% — GUARDIAN DEFEATED';
     if (this.phase === 1) {
-      return 'Phase 1: Patrol Mode — Step on SURGE-NODE or use [2] EMP / [4] Glitch near Boss';
+      return `PHASE 1: Patrol Mode — Activate ${this.surgeNodesRemaining} SURGE NODE switch${
+        this.surgeNodesRemaining === 1 ? '' : 'es'
+      } in the Core Arena to drop Guardian Armor!`;
     }
     if (this.phase === 2) {
-      return 'Phase 2: Aggressive — Use [2] EMP or [4] Glitch Pulse near Boss to overload armor';
+      return 'PHASE 2: Aggressive Mode — Use EMP Glove [2] or Glitch Pulse [4] near Guardian to overload its Core!';
     }
-    return 'Phase 3: CORE EXPOSED — Hack CORE-PURGE Terminal [E]/[3] or use [3] Hack near Boss!';
+    return 'PHASE 3: SHIELD DOWN — Interact [E] / [3] Hack at the CORE PURGE TERMINAL to execute 100% Purge!';
   }
 
-  public takeDamage(amount: number = 1, reason?: string): boolean {
-    if (this.defeated || this.invulnTimer > 0) return false;
-
-    this.hp = Math.max(0, this.hp - amount);
-    this.invulnTimer = 900;
+  public triggerSurgeNode(): boolean {
+    if (this.defeated) return false;
+    if (this.surgeNodesRemaining > 0) {
+      this.surgeNodesRemaining--;
+    }
+    this.hp = Math.max(2, this.hp - 1);
     this.stunTimer = 1400;
     AudioSystem.playBossHit();
 
-    // Update phase based on remaining HP
-    if (this.hp >= 4) {
-      this.phase = 1;
-    } else if (this.hp >= 2) {
+    if (this.surgeNodesRemaining <= 0 && this.phase === 1) {
       this.phase = 2;
-    } else if (this.hp === 1) {
-      this.phase = 3;
-      this.setTexture('boss_vulnerable');
+      this.hp = 3;
     }
 
+    this.playHitFlash();
+    return true;
+  }
+
+  public takeAbilityDamage(source: 'EMP' | 'GLITCH' | 'HACK' | 'PURGE_TERMINAL'): {
+    damaged: boolean;
+    message: string;
+  } {
+    if (this.defeated) {
+      return { damaged: false, message: 'Core Guardian already purged.' };
+    }
+    if (this.invulnTimer > 0) {
+      return { damaged: false, message: 'Core Guardian recovering...' };
+    }
+
+    // Phase 1 requires Surge Nodes (or Purge Terminal)
+    if (this.phase === 1 && source !== 'PURGE_TERMINAL') {
+      this.stunTimer = 900;
+      return {
+        damaged: false,
+        message: `Guardian Armor Locked! Step on ${this.surgeNodesRemaining} SURGE NODE switch(es) first!`
+      };
+    }
+
+    // Phase 2 requires EMP or Glitch (or Purge Terminal)
+    if (this.phase === 2) {
+      this.hp = Math.max(1, this.hp - 1);
+      this.invulnTimer = 850;
+      this.stunTimer = 1500;
+      AudioSystem.playBossHit();
+      this.playHitFlash();
+
+      if (this.hp <= 1) {
+        this.phase = 3;
+        this.setTexture('boss_vulnerable');
+        return {
+          damaged: true,
+          message: 'GUARDIAN SHIELD DOWN! Interact [E] / [3] Hack with CORE PURGE TERMINAL!'
+        };
+      }
+      return {
+        damaged: true,
+        message: `Guardian Core Overloaded! Hit once more with EMP [2] or Glitch [4]!`
+      };
+    }
+
+    // Phase 3: Final Purge via Terminal or Hack
+    if (this.phase === 3) {
+      if (source === 'PURGE_TERMINAL' || source === 'HACK') {
+        this.hp = 0;
+        this.defeatGuardian();
+        return {
+          damaged: true,
+          message: 'SYSTEM CORE PURGE: 100% — CORE GUARDIAN DEFEATED!'
+        };
+      }
+      this.stunTimer = 1200;
+      return {
+        damaged: false,
+        message: 'Core Shield Down! Use [E] or [3] Hack at the CORE PURGE TERMINAL to finish!'
+      };
+    }
+
+    return { damaged: false, message: '' };
+  }
+
+  private playHitFlash() {
     this.scene.tweens.add({
       targets: this,
       alpha: { from: 0.25, to: 1 },
@@ -99,19 +182,13 @@ export class CoreGuardian extends Phaser.Physics.Arcade.Sprite {
       scaleY: { from: 1.18, to: 1 },
       duration: 260
     });
-
-    if (this.hp <= 0) {
-      this.defeatGuardian();
-    }
-
-    return true;
   }
 
   private defeatGuardian() {
     this.defeated = true;
     this.setVelocity(0, 0);
     this.pulseRingGraphics.clear();
-    this.statusLabel.setText('GUARDIAN PURGED');
+    this.statusLabel.setText('SYSTEM CORE PURGE: 100%');
     this.statusLabel.setColor('#34d399');
 
     const body = this.body as Phaser.Physics.Arcade.Body;
@@ -126,10 +203,10 @@ export class CoreGuardian extends Phaser.Physics.Arcade.Sprite {
       scale: { start: 1.6, end: 0 },
       lifespan: 700,
       tint: [0xf43f5e, 0xfbbf24, 0x34d399, 0x38bdf8],
-      quantity: 32,
+      quantity: 34,
       emitting: false
     });
-    particles.explode(32);
+    particles.explode(34);
 
     this.scene.tweens.add({
       targets: this,
@@ -144,7 +221,12 @@ export class CoreGuardian extends Phaser.Physics.Arcade.Sprite {
     return !this.defeated && this.stunTimer <= 0 && this.phase !== 3;
   }
 
-  public update(delta: number, playerX: number, playerY: number) {
+  public update(
+    delta: number,
+    playerX: number,
+    playerY: number,
+    activeDecoys: DecoyBeacon[] = []
+  ) {
     if (this.defeated) return;
 
     this.statusLabel.setPosition(this.x, this.y - 52);
@@ -156,29 +238,43 @@ export class CoreGuardian extends Phaser.Physics.Arcade.Sprite {
     if (this.stunTimer > 0) {
       this.stunTimer = Math.max(0, this.stunTimer - delta);
       this.setVelocity(0, 0);
-      this.statusLabel.setText(`STUNNED [HP: ${this.hp}/${this.maxHp}]`);
+      this.statusLabel.setText(`DISRUPTED [PHASE ${this.phase}]`);
       this.statusLabel.setColor('#38bdf8');
       return;
     }
 
     this.pulseRingGraphics.clear();
 
+    // Check if briefly lured by Glitch Decoy in Phase 1 or 2
+    let targetX = playerX;
+    let targetY = playerY;
+    activeDecoys.forEach((decoy) => {
+      if (decoy.isActive() && Phaser.Math.Distance.Between(this.x, this.y, decoy.x, decoy.y) < 220) {
+        targetX = decoy.x;
+        targetY = decoy.y;
+      }
+    });
+
     if (this.phase === 1) {
-      // Phase 1: Patrols horizontally in the Core Arena
-      this.statusLabel.setText(`GUARDIAN PHASE 1 [HP ${this.hp}/${this.maxHp}]`);
+      this.statusLabel.setText(
+        `PHASE 1: PATROL [SURGE NODES LEFT: ${this.surgeNodesRemaining}]`
+      );
       this.statusLabel.setColor('#fbbf24');
 
-      if (this.x > this.homeX + TILE_SIZE * 4) this.patrolDir = -1;
-      if (this.x < this.homeX - TILE_SIZE * 4) this.patrolDir = 1;
-      this.setVelocity(this.patrolDir * 85, 0);
+      const speed = this.awakened ? 95 : 78;
+      if (this.x > this.homeX + TILE_SIZE * 4.2) this.patrolDir = -1;
+      if (this.x < this.homeX - TILE_SIZE * 4.2) this.patrolDir = 1;
+      this.setVelocity(this.patrolDir * speed, 0);
+
+      this.pulseRingGraphics.lineStyle(2, 0xf59e0b, 0.45);
+      this.pulseRingGraphics.strokeCircle(this.x, this.y, 44);
     } else if (this.phase === 2) {
-      // Phase 2: Aggressive chase toward player inside the Core Arena (row >= 9)
-      this.statusLabel.setText(`GUARDIAN PHASE 2 [HP ${this.hp}/${this.maxHp}]`);
+      this.statusLabel.setText(`PHASE 2: AGGRESSIVE [USE EMP [2] / GLITCH [4]]`);
       this.statusLabel.setColor('#f87171');
 
-      if (playerY > TILE_SIZE * 8.5) {
-        const angle = Phaser.Math.Angle.Between(this.x, this.y, playerX, playerY);
-        this.setVelocity(Math.cos(angle) * 95, Math.sin(angle) * 95);
+      if (targetY > TILE_SIZE * 8.5) {
+        const angle = Phaser.Math.Angle.Between(this.x, this.y, targetX, targetY);
+        this.setVelocity(Math.cos(angle) * 94, Math.sin(angle) * 94);
       } else {
         const angle = Phaser.Math.Angle.Between(this.x, this.y, this.homeX, this.homeY);
         if (Phaser.Math.Distance.Between(this.x, this.y, this.homeX, this.homeY) > 12) {
@@ -188,13 +284,11 @@ export class CoreGuardian extends Phaser.Physics.Arcade.Sprite {
         }
       }
 
-      // Visual energy aura
       this.pulseRadius = (this.pulseRadius + delta * 0.08) % 75;
       this.pulseRingGraphics.lineStyle(2, 0xf43f5e, 1 - this.pulseRadius / 75);
       this.pulseRingGraphics.strokeCircle(this.x, this.y, 35 + this.pulseRadius);
     } else {
-      // Phase 3: Core Exposed! Retreats to center, pulsing green vulnerable ring
-      this.statusLabel.setText('CORE EXPOSED — HACK [3] OR PURGE TERMINAL!');
+      this.statusLabel.setText('PHASE 3: SHIELD DOWN — HACK CORE PURGE TERMINAL!');
       this.statusLabel.setColor('#34d399');
 
       const distToCenter = Phaser.Math.Distance.Between(this.x, this.y, this.homeX, this.homeY);
@@ -206,8 +300,8 @@ export class CoreGuardian extends Phaser.Physics.Arcade.Sprite {
       }
 
       this.pulseRadius = (this.pulseRadius + delta * 0.06) % 60;
-      this.pulseRingGraphics.lineStyle(2, 0x10b981, 0.8);
-      this.pulseRingGraphics.strokeCircle(this.x, this.y, 44);
+      this.pulseRingGraphics.lineStyle(2.5, 0x10b981, 0.85);
+      this.pulseRingGraphics.strokeCircle(this.x, this.y, 46);
     }
   }
 }

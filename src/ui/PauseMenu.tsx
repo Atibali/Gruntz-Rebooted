@@ -56,11 +56,13 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
             <span>WASD / ARROWS</span>
             <span className="text-right text-slate-200">Move Grunt</span>
             <span>E</span>
-            <span className="text-right text-slate-200">Interact / Terminal</span>
+            <span className="text-right text-slate-200">Tool Station / Terminal</span>
+            <span>SPACE</span>
+            <span className="text-right text-slate-200">Use Active Physical Tool</span>
             <span>1 · 2 · 3 · 4</span>
             <span className="text-right text-slate-200">Shield · EMP · Hack · Glitch</span>
             <span>ESC</span>
-            <span className="text-right text-slate-200">Pause / Resume</span>
+            <span className="text-right text-slate-200">Pause / Close Modal</span>
           </div>
         </div>
       </div>

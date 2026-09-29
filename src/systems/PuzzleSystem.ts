@@ -38,6 +38,14 @@ export class PuzzleSystem {
     this.platforms.set(platform.platformId, platform);
   }
 
+  public getDoor(id: string): Door | undefined {
+    return this.doors.get(id);
+  }
+
+  public getLaser(id: string): Laser | undefined {
+    return this.lasers.get(id);
+  }
+
   public drawCircuitLinks(switches: Switch[], terminals: Terminal[]) {
     this.circuitGraphics.clear();
 
@@ -107,8 +115,21 @@ export class PuzzleSystem {
 
     const boss = this.getBoss();
     if (boss && !boss.isDefeated()) {
-      if (sourceId === 'sw_boss_surge' || isBossPurge) {
-        boss.takeDamage(1, isBossPurge ? 'Core Purge Terminal' : 'Surge Node');
+      if (sourceId && sourceId.startsWith('sw_boss_surge')) {
+        boss.triggerSurgeNode();
+        const rem = boss.getSurgeNodesRemaining();
+        this.onToast(
+          rem > 0
+            ? `SURGE NODE ACTIVATED! ${rem} Surge Node left to drop Guardian Armor!`
+            : `ALL SURGE NODES ACTIVE! Guardian Armor Dropped — Phase 2 Engaged!`
+        );
+        return;
+      }
+
+      if (isBossPurge) {
+        const res = boss.takeAbilityDamage('PURGE_TERMINAL');
+        this.onToast(res.message);
+        return;
       }
     }
 

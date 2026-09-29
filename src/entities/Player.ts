@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GridPos, TILE_SIZE } from '../config/levels';
+import { ToolType } from '../systems/GameEvents';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -10,10 +11,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     D: Phaser.Input.Keyboard.Key;
   };
   private shieldGraphics: Phaser.GameObjects.Graphics;
+  private heldToolSprite: Phaser.GameObjects.Sprite;
   private walkAnimTimer: number = 0;
   private walkFrame: number = 0;
   private shieldActive: boolean = false;
   private shieldAngle: number = 0;
+  private activeTool: ToolType = 'NONE';
   private externalDir: { x: number; y: number } = { x: 0, y: 0 };
   public readonly moveSpeed: number = 178;
 
@@ -28,7 +31,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setDepth(10);
     this.setCollideWorldBounds(true);
 
-    // Compact hitbox for smooth corridor navigation
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setSize(24, 24);
     body.setOffset(8, 10);
@@ -44,6 +46,52 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.shieldGraphics = scene.add.graphics().setDepth(15);
+    this.heldToolSprite = scene.add
+      .sprite(x + 15, y + 2, 'tool_icon_HAMMER')
+      .setDepth(14)
+      .setVisible(false);
+  }
+
+  public setActiveTool(tool: ToolType) {
+    this.activeTool = tool;
+    if (tool === 'NONE') {
+      this.heldToolSprite.setVisible(false);
+    } else {
+      this.heldToolSprite.setTexture(`tool_icon_${tool}`);
+      this.heldToolSprite.setVisible(true);
+      this.playToolPickupAnim();
+    }
+  }
+
+  public getActiveTool(): ToolType {
+    return this.activeTool;
+  }
+
+  public playToolPickupAnim() {
+    this.scene.tweens.add({
+      targets: [this, this.heldToolSprite],
+      scaleX: 1.22,
+      scaleY: 1.22,
+      yoyo: true,
+      duration: 150
+    });
+  }
+
+  public playToolUseAnim() {
+    if (this.heldToolSprite.visible) {
+      this.scene.tweens.add({
+        targets: this.heldToolSprite,
+        angle: { from: -35, to: 45 },
+        scaleX: 1.35,
+        scaleY: 1.35,
+        yoyo: true,
+        duration: 140,
+        onComplete: () => {
+          this.heldToolSprite.setAngle(0);
+          this.heldToolSprite.setScale(1);
+        }
+      });
+    }
   }
 
   public setExternalDirection(dx: number, dy: number) {
@@ -87,7 +135,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     this.setVelocity(vx * this.moveSpeed, vy * this.moveSpeed);
 
-    // Walk frame animation
     if (vx !== 0 || vy !== 0) {
       this.walkAnimTimer += delta;
       if (this.walkAnimTimer >= 130) {
@@ -99,6 +146,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.setTexture('player_idle');
     }
 
+    // Update held tool position
+    this.heldToolSprite.setPosition(this.x + 15, this.y + 3);
+
     // Draw circular energy shield if active
     this.shieldGraphics.clear();
     if (this.shieldActive) {
@@ -108,7 +158,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.shieldGraphics.fillStyle(0x38bdf8, 0.18);
       this.shieldGraphics.fillCircle(this.x, this.y, 24);
 
-      // Orbiting energy nodes
       for (let i = 0; i < 3; i++) {
         const a = this.shieldAngle + (i * Math.PI * 2) / 3;
         const nx = this.x + Math.cos(a) * 24;

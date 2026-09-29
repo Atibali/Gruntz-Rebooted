@@ -118,6 +118,32 @@ class AudioSystemManager {
     this.playTone(640, 0.15, 'sawtooth', 0.12, 140, 140);
   }
 
+  public playToolPickup() {
+    this.playTone(392.0, 0.08, 'triangle', 0.14);
+    this.playTone(523.25, 0.09, 'triangle', 0.14, undefined, 65);
+    this.playTone(783.99, 0.16, 'square', 0.12, undefined, 130);
+  }
+
+  public playHammerSmash() {
+    this.playTone(140, 0.18, 'sawtooth', 0.22, 42);
+    this.playTone(95, 0.22, 'square', 0.18, 35, 50);
+  }
+
+  public playShovelDig() {
+    this.playTone(220, 0.1, 'triangle', 0.15, 380);
+    this.playTone(330, 0.12, 'sine', 0.14, 520, 75);
+  }
+
+  public playDecoyDeploy() {
+    this.playTone(587.33, 0.1, 'sine', 0.14, 880);
+    this.playTone(880, 0.14, 'triangle', 0.12, 587.33, 95);
+  }
+
+  public playSecurityAlert() {
+    this.playTone(440, 0.16, 'sawtooth', 0.16, 620);
+    this.playTone(440, 0.18, 'sawtooth', 0.16, 620, 190);
+  }
+
   public playEnemyAlert() {
     this.playTone(600, 0.08, 'square', 0.1, 820);
     this.playTone(820, 0.1, 'square', 0.1, 600, 85);
