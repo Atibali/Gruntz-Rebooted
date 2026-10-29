@@ -192,7 +192,7 @@ export const LEVELS: Record<1 | 2 | 3 | 4, LevelConfig> = {
         col: 8,
         row: 6,
         lengthTiles: 3,
-        direction: 'horizontal',
+        direction: 'vertical',
         initiallyActive: false
       }
     ],

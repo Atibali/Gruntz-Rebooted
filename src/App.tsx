@@ -13,6 +13,7 @@ import { AbilityBar } from './ui/AbilityBar';
 import { PauseMenu } from './ui/PauseMenu';
 import { SettingsModal } from './ui/SettingsModal';
 import { AchievementsModal } from './ui/AchievementsModal';
+import { GameLogo } from './ui/GameLogo';
 import { LEVELS } from './config/levels';
 import {
   Play,
@@ -103,6 +104,7 @@ export default function App() {
   const phaserGameRef = useRef<Phaser.Game | null>(null);
 
   const [gameState, setGameState] = useState<GameState>('MAIN_MENU');
+  const [isGameReady, setIsGameReady] = useState<boolean>(false);
   const [showControlsModal, setShowControlsModal] = useState<boolean>(false);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [showAchievementsModal, setShowAchievementsModal] = useState<boolean>(false);
@@ -203,6 +205,10 @@ export default function App() {
       setGameState('VICTORY');
     };
 
+    const onBootReady = () => {
+      setIsGameReady(true);
+    };
+
     const onRequestTogglePause = () => {
       setGameState((prev) => {
         const currentKey = getSceneKey(activeLevelRef.current);
@@ -221,6 +227,7 @@ export default function App() {
     gameEvents.on('level-complete', onLevelComplete);
     gameEvents.on('level-game-over', onGameOver);
     gameEvents.on('game-victory', onVictory);
+    gameEvents.on('boot-ready', onBootReady);
     gameEvents.on('request-toggle-pause', onRequestTogglePause);
 
     return () => {
@@ -228,6 +235,7 @@ export default function App() {
       gameEvents.off('level-complete', onLevelComplete);
       gameEvents.off('level-game-over', onGameOver);
       gameEvents.off('game-victory', onVictory);
+      gameEvents.off('boot-ready', onBootReady);
       gameEvents.off('request-toggle-pause', onRequestTogglePause);
       game.destroy(true);
       phaserGameRef.current = null;
@@ -300,6 +308,31 @@ export default function App() {
       {/* Subtle CRT Scanline Overlay */}
       <div className="crt-scanlines pointer-events-none fixed inset-0 z-10 opacity-35" />
 
+      {!isGameReady && (
+        <div
+          aria-live="polite"
+          aria-label="Loading GRUNTZ: REBOOTED"
+          className="game-loader fixed inset-0 z-50 flex flex-col items-center justify-center px-6 text-center"
+        >
+          <div className="game-loader__grid" aria-hidden="true" />
+          <div className="game-loader__content">
+            <GameLogo className="game-loader__logo" iconClassName="game-loader__mark" />
+            <p className="game-loader__tagline">RESTORING MAINFRAME CONNECTION</p>
+            <div
+              className="game-loader__progress"
+              role="progressbar"
+              aria-label="Initializing game"
+            >
+              <span />
+            </div>
+            <p className="game-loader__status">
+              <span className="game-loader__status-dot" />
+              INITIALIZING GAME SYSTEMS
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Active Gameplay HUD & Bottom Bar */}
       {(gameState === 'PLAYING' || gameState === 'PAUSED') && (
         <>
@@ -341,11 +374,8 @@ export default function App() {
                   <span>{totalStars} / 12 STARS</span>
                 </span>
               </div>
-              <h1
-                className="font-display mt-2 text-4xl md:text-5xl font-bold tracking-wider text-emerald-400"
-                style={{ textWrap: 'balance' }}
-              >
-                GRUNTZ: REBOOTED
+              <h1 className="mt-4 flex justify-center" style={{ textWrap: 'balance' }}>
+                <GameLogo className="game-menu-logo" />
               </h1>
               <p className="mx-auto mt-3 max-w-xl text-sm text-slate-300 leading-relaxed">
                 Explore a corrupted computer mainframe, swap physical tools at Tool Stations (one
