@@ -451,6 +451,113 @@ export class AssetGenerator {
     g.fillCircle(11, 11, 2.5);
     g.generateTexture('tool_icon_DECOY', 22, 22);
 
+    // 21. Sentry Turret (44x44) - Rotating Security Scanner
+    g.clear();
+    g.fillStyle(0x1e293b, 1);
+    g.fillCircle(22, 22, 18);
+    g.lineStyle(2, 0xef4444, 1);
+    g.strokeCircle(22, 22, 18);
+    g.fillStyle(0x0f172a, 1);
+    g.fillCircle(22, 22, 10);
+    g.fillStyle(0xef4444, 1);
+    g.fillCircle(22, 22, 5);
+    g.fillStyle(0xfca5a5, 0.9);
+    g.fillCircle(22, 22, 2);
+    // Scanner lens aperture
+    g.lineStyle(3, 0xf43f5e, 1);
+    g.lineBetween(22, 22, 36, 22);
+    g.generateTexture('sentry_turret', 44, 44);
+
+    // 22. Sentry Turret Disabled (44x44)
+    g.clear();
+    g.fillStyle(0x0f172a, 1);
+    g.fillCircle(22, 22, 18);
+    g.lineStyle(1.5, 0x475569, 0.8);
+    g.strokeCircle(22, 22, 18);
+    g.fillStyle(0x1e293b, 1);
+    g.fillCircle(22, 22, 10);
+    g.fillStyle(0x38bdf8, 0.7);
+    g.fillCircle(22, 22, 4);
+    g.generateTexture('sentry_turret_disabled', 44, 44);
+
+    // 23. Secret Data Cache (36x36) - Bonus Gold/Purple Floppy Memory Cache
+    g.clear();
+    g.fillStyle(0xa855f7, 0.3);
+    g.fillCircle(18, 18, 16);
+    g.fillStyle(0x581c87, 1);
+    g.fillRoundedRect(6, 6, 24, 24, 4);
+    g.lineStyle(2, 0xd8b4fe, 1);
+    g.strokeRoundedRect(6, 6, 24, 24, 4);
+    // Floppy disk shutter & label
+    g.fillStyle(0xc084fc, 1);
+    g.fillRect(10, 8, 16, 8);
+    g.fillStyle(0xfef08a, 1);
+    g.fillRect(10, 18, 16, 9);
+    g.fillStyle(0x0f172a, 1);
+    g.fillRect(12, 20, 12, 2);
+    g.fillRect(12, 23, 8, 2);
+    g.generateTexture('secret_data_cache', 36, 36);
+
+    // 24. Circuit Energy Pulse (8x8)
+    g.clear();
+    g.fillStyle(0x38bdf8, 1);
+    g.fillCircle(4, 4, 3.5);
+    g.fillStyle(0xffffff, 0.9);
+    g.fillCircle(4, 4, 1.5);
+    g.generateTexture('circuit_energy_pulse', 8, 8);
+
+    // 25. Overclock Sanctum Floor Tile (48x48)
+    g.clear();
+    g.fillStyle(0x140d21, 1);
+    g.fillRect(0, 0, 48, 48);
+    g.lineStyle(1, 0x2e1b4d, 1);
+    g.strokeRect(0.5, 0.5, 47, 47);
+    // Gold/violet circuit trace
+    g.lineStyle(1.5, 0xd97706, 0.6);
+    g.beginPath();
+    g.moveTo(6, 12);
+    g.lineTo(24, 12);
+    g.lineTo(36, 24);
+    g.lineTo(36, 42);
+    g.strokePath();
+    g.fillStyle(0xfbbf24, 0.85);
+    g.fillCircle(6, 12, 2);
+    g.fillCircle(36, 42, 2);
+    g.generateTexture('tile_floor_sanctum', 48, 48);
+
+    // 26. Overclock Sanctum Wall Tile (48x48)
+    g.clear();
+    g.fillStyle(0x2d1747, 1);
+    g.fillRect(0, 0, 48, 48);
+    g.fillStyle(0x4c2277, 1);
+    g.fillRect(2, 2, 44, 8);
+    g.fillStyle(0x1b0a2e, 1);
+    g.fillRect(6, 12, 36, 30);
+    g.lineStyle(2, 0xd97706, 0.9);
+    g.strokeRect(1, 1, 46, 46);
+    g.fillStyle(0xf59e0b, 1);
+    g.fillRect(10, 18, 28, 3);
+    g.fillRect(10, 26, 28, 3);
+    g.fillRect(10, 34, 16, 3);
+    g.generateTexture('tile_wall_sanctum', 48, 48);
+
+    // 27. Player Hurt / Damage Tint (40x40)
+    g.clear();
+    g.fillStyle(0xef4444, 0.85);
+    g.fillRoundedRect(7, 11, 26, 20, 5);
+    g.lineStyle(2, 0xffffff, 1);
+    g.strokeRoundedRect(7, 11, 26, 20, 5);
+    g.fillStyle(0xffffff, 1);
+    g.fillRect(13, 15, 5, 4);
+    g.fillRect(22, 15, 5, 4);
+    g.generateTexture('player_hurt', 40, 40);
+
+    // 28. Ambient Dust Mote (6x6)
+    g.clear();
+    g.fillStyle(0x38bdf8, 0.6);
+    g.fillCircle(3, 3, 2.5);
+    g.generateTexture('dust_mote', 6, 6);
+
     g.destroy();
   }
 }

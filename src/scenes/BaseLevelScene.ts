@@ -16,11 +16,14 @@ import { ToolStation } from '../objects/ToolStation';
 import { CorruptedWall } from '../objects/CorruptedWall';
 import { SoftDataBlock } from '../objects/SoftDataBlock';
 import { DecoyBeacon } from '../objects/DecoyBeacon';
+import { SentryTurret } from '../objects/SentryTurret';
+import { SecretDataCache } from '../objects/SecretDataCache';
 import { HealthSystem } from '../systems/HealthSystem';
 import { PuzzleSystem } from '../systems/PuzzleSystem';
 import { AbilitySystem } from '../systems/AbilitySystem';
 import { levelSystem } from '../systems/LevelSystem';
 import { AudioSystem } from '../systems/AudioSystem';
+import { progressionSystem } from '../systems/ProgressionSystem';
 import {
   gameEvents,
   HudSnapshot,
@@ -30,7 +33,7 @@ import {
 } from '../systems/GameEvents';
 
 export class BaseLevelScene extends Phaser.Scene {
-  protected levelNum: 1 | 2 | 3;
+  protected levelNum: 1 | 2 | 3 | 4;
   protected config!: LevelConfig;
   protected player!: Player;
   protected healthSystem!: HealthSystem;
@@ -47,6 +50,8 @@ export class BaseLevelScene extends Phaser.Scene {
   protected shards: DataShard[] = [];
   protected drones: SecurityDrone[] = [];
   protected glitches: GlitchCreature[] = [];
+  protected sentries: SentryTurret[] = [];
+  protected secretCache?: SecretDataCache;
   protected toolStations: ToolStation[] = [];
   protected corruptedWalls: CorruptedWall[] = [];
   protected softDataBlocks: SoftDataBlock[] = [];
@@ -56,6 +61,8 @@ export class BaseLevelScene extends Phaser.Scene {
 
   private securityAlertLevel: number = 0;
   private decoyCooldownMs: number = 0;
+  private levelElapsedMs: number = 0;
+  private ambientDustMotes: Phaser.GameObjects.Arc[] = [];
   private toolModalState: ToolStationModalState = {
     isOpen: false,
     stationId: '',
@@ -70,7 +77,7 @@ export class BaseLevelScene extends Phaser.Scene {
   private hudSnapshotElapsedMs: number = 0;
   private exitLockWasShown: boolean = false;
 
-  constructor(key: string, levelNum: 1 | 2 | 3) {
+  constructor(key: string, levelNum: 1 | 2 | 3 | 4) {
     super({ key });
     this.levelNum = levelNum;
   }
@@ -79,6 +86,7 @@ export class BaseLevelScene extends Phaser.Scene {
     this.levelCompleted = false;
     this.isGameOver = false;
     this.hudSnapshotElapsedMs = 0;
+    this.levelElapsedMs = 0;
     this.exitLockWasShown = false;
     this.securityAlertLevel = 0;
     this.decoyCooldownMs = 0;
@@ -91,11 +99,14 @@ export class BaseLevelScene extends Phaser.Scene {
     this.shards = [];
     this.drones = [];
     this.glitches = [];
+    this.sentries = [];
+    this.secretCache = undefined;
     this.toolStations = [];
     this.corruptedWalls = [];
     this.softDataBlocks = [];
     this.decoys = [];
     this.boss = undefined;
+    this.ambientDustMotes = [];
     this.toolModalState = {
       isOpen: false,
       stationId: '',
@@ -114,6 +125,10 @@ export class BaseLevelScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
     this.wallGroup = this.physics.add.staticGroup();
 
+    // Map theme textures
+    const floorTex = this.levelNum === 4 ? 'tile_floor_sanctum' : 'tile_floor';
+    const wallTex = this.levelNum === 4 ? 'tile_wall_sanctum' : 'tile_wall';
+
     // Build Floor, Walls, and Void Chasms
     for (let r = 0; r < mapRows; r++) {
       const rowStr = this.config.map[r];
@@ -123,8 +138,8 @@ export class BaseLevelScene extends Phaser.Scene {
         const y = r * TILE_SIZE + TILE_SIZE / 2;
 
         if (ch === '#') {
-          this.add.image(x, y, 'tile_floor').setDepth(0);
-          const wall = this.wallGroup.create(x, y, 'tile_wall') as Phaser.Physics.Arcade.Sprite;
+          this.add.image(x, y, floorTex).setDepth(0);
+          const wall = this.wallGroup.create(x, y, wallTex) as Phaser.Physics.Arcade.Sprite;
           wall.setDepth(5);
           wall.refreshBody();
         } else if (ch === '~') {
@@ -136,9 +151,24 @@ export class BaseLevelScene extends Phaser.Scene {
             voidBlocker.refreshBody();
           }
         } else {
-          this.add.image(x, y, 'tile_floor').setDepth(0);
+          this.add.image(x, y, floorTex).setDepth(0);
         }
       }
+    }
+
+    // Ambient floating dust particles
+    for (let i = 0; i < 24; i++) {
+      const px = Phaser.Math.Between(20, worldWidth - 20);
+      const py = Phaser.Math.Between(20, worldHeight - 20);
+      const mote = this.add.circle(
+        px,
+        py,
+        Phaser.Math.FloatBetween(1, 2.2),
+        this.levelNum === 4 ? 0xf59e0b : 0x06b6d4,
+        0.35
+      );
+      mote.setDepth(4);
+      this.ambientDustMotes.push(mote);
     }
 
     // World Floor Hints
@@ -214,22 +244,36 @@ export class BaseLevelScene extends Phaser.Scene {
       this.softDataBlocks.push(sd);
     });
 
+    // Sentry Turrets
+    if (this.config.sentries) {
+      this.config.sentries.forEach((sCfg) => {
+        const sentry = new SentryTurret(this, sCfg);
+        this.sentries.push(sentry);
+      });
+    }
+
+    // Secret Lore Cache
+    if (this.config.secretCache) {
+      this.secretCache = new SecretDataCache(this, this.config.secretCache);
+    }
+
     // Hazards
     this.config.hazards.forEach((hCfg) => {
       const haz = new Hazard(this, hCfg);
       this.hazards.push(haz);
     });
 
-    // Core Fragments (formerly Data Shards)
+    // Core Fragments
     this.config.shards.forEach((sPos) => {
       const shard = new DataShard(this, sPos);
       this.shards.push(shard);
     });
 
     // Exit Portal
-    this.exitPortal = new Exit(this, this.config.exitPos, this.levelNum === 3);
+    this.exitPortal = new Exit(this, this.config.exitPos, this.levelNum === 3 || this.levelNum === 4);
 
-    // Player
+    // Player with Difficulty HP
+    const diffConfig = progressionSystem.getDifficultyConfig();
     this.player = new Player(this, this.config.playerStart);
     if (this.config.initialTool && this.config.initialTool !== 'NONE') {
       this.player.setActiveTool(this.config.initialTool);
@@ -239,7 +283,8 @@ export class BaseLevelScene extends Phaser.Scene {
       this,
       this.player,
       () => this.handlePlayerDeath(),
-      (msg) => this.showToast(msg)
+      (msg) => this.showToast(msg),
+      diffConfig.playerHp
     );
 
     this.abilitySystem = new AbilitySystem(this, this.player, (msg) => this.showToast(msg));
@@ -276,6 +321,9 @@ export class BaseLevelScene extends Phaser.Scene {
     });
     this.softDataBlocks.forEach((sd) => {
       this.physics.add.collider(this.player, sd);
+    });
+    this.sentries.forEach((s) => {
+      this.physics.add.collider(this.player, s);
     });
 
     // Overlaps
@@ -350,6 +398,7 @@ export class BaseLevelScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, resizeCameraBounds);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, resizeCameraBounds);
+      AudioSystem.setTension(false);
     });
     this.cameras.main.startFollow(this.player, true, 0.14, 0.14);
     this.cameras.main.setBackgroundColor('#070b12');
@@ -399,13 +448,14 @@ export class BaseLevelScene extends Phaser.Scene {
 
     AudioSystem.startMusic(this.levelNum === 3 ? 'boss' : 'level');
     this.updateExitUnlockState();
-    this.showToast(`Entered ${this.config.name}`);
+    this.showToast(`Entered ${this.config.name} (${progressionSystem.getDifficulty()} MODE)`);
     this.emitHudSnapshot();
   }
 
   private spawnEnemyUnit(eCfg: EnemyConfig) {
+    const diff = progressionSystem.getDifficultyConfig();
     if (eCfg.type === 'drone') {
-      const drone = new SecurityDrone(this, eCfg);
+      const drone = new SecurityDrone(this, eCfg, diff.droneSpeedMult, diff.detectionRadiusMult);
       this.drones.push(drone);
       this.physics.add.collider(drone, this.wallGroup);
       this.doors.forEach((door) => this.physics.add.collider(drone, door));
@@ -417,7 +467,7 @@ export class BaseLevelScene extends Phaser.Scene {
         }
       });
     } else {
-      const glitch = new GlitchCreature(this, eCfg);
+      const glitch = new GlitchCreature(this, eCfg, diff.droneSpeedMult);
       this.glitches.push(glitch);
       this.physics.add.collider(glitch, this.wallGroup);
       this.doors.forEach((door) => this.physics.add.collider(glitch, door));
@@ -497,6 +547,7 @@ export class BaseLevelScene extends Phaser.Scene {
       if (this.player.getActiveTool() === 'HAMMER') {
         this.player.playToolUseAnim();
         nearbyWall.smash();
+        progressionSystem.recordToolUse('HAMMER');
         this.showToast('DATA HAMMER: Corrupted Wall Smashed!');
       } else {
         this.showToast('REQUIRES TOOL: [DATA HAMMER] — Equip at a Tool Station!');
@@ -511,6 +562,7 @@ export class BaseLevelScene extends Phaser.Scene {
       if (this.player.getActiveTool() === 'SHOVEL') {
         this.player.playToolUseAnim();
         nearbySoft.dig();
+        progressionSystem.recordToolUse('SHOVEL');
         this.showToast('VOID SHOVEL: Soft-Data Obstacle Excavated!');
       } else {
         this.showToast('REQUIRES TOOL: [VOID SHOVEL] — Equip at a Tool Station!');
@@ -538,7 +590,7 @@ export class BaseLevelScene extends Phaser.Scene {
       return;
     }
 
-    // 4. Otherwise use active physical tool (e.g. Deploy Decoy or EMP Glove)
+    // 4. Otherwise use active physical tool
     this.handleUseActiveTool();
   }
 
@@ -559,6 +611,7 @@ export class BaseLevelScene extends Phaser.Scene {
         (cw) => !cw.getIsBroken() && Phaser.Math.Distance.Between(px, py, cw.x, cw.y) <= 85
       );
       this.player.playToolUseAnim();
+      progressionSystem.recordToolUse('HAMMER');
       if (wall) {
         wall.smash();
         this.showToast('DATA HAMMER: Corrupted Wall Smashed!');
@@ -573,6 +626,7 @@ export class BaseLevelScene extends Phaser.Scene {
         (sd) => !sd.getIsDug() && Phaser.Math.Distance.Between(px, py, sd.x, sd.y) <= 85
       );
       this.player.playToolUseAnim();
+      progressionSystem.recordToolUse('SHOVEL');
       if (soft) {
         soft.dig();
         this.showToast('VOID SHOVEL: Soft-Data Obstacle Cleared!');
@@ -583,6 +637,7 @@ export class BaseLevelScene extends Phaser.Scene {
     }
 
     if (tool === 'EMP') {
+      progressionSystem.recordToolUse('EMP');
       this.triggerAbility('emp');
       return;
     }
@@ -596,6 +651,7 @@ export class BaseLevelScene extends Phaser.Scene {
       }
       this.decoyCooldownMs = 4500;
       this.player.playToolUseAnim();
+      progressionSystem.recordToolUse('DECOY');
       const beacon = new DecoyBeacon(this, px, py);
       this.decoys.push(beacon);
       this.showToast('GLITCH DECOY DEPLOYED — Nearby Drones & Glitches Lured!');
@@ -645,10 +701,21 @@ export class BaseLevelScene extends Phaser.Scene {
     if (this.levelCompleted || this.isGameOver || this.scene.isPaused()) return;
     if (id === 'shield') {
       this.abilitySystem.useShield();
+      progressionSystem.recordAbilityUse('shield');
     } else if (id === 'emp') {
       this.abilitySystem.useEmp(this.drones, this.glitches, this.lasers, this.hazards, this.boss);
+      progressionSystem.recordAbilityUse('emp');
+      // Also disable nearby sentry turrets
+      const px = this.player.x;
+      const py = this.player.y;
+      this.sentries.forEach((s) => {
+        if (Phaser.Math.Distance.Between(px, py, s.x, s.y) <= 220) {
+          s.disableSentry(6500);
+        }
+      });
       this.updateExitUnlockState();
     } else if (id === 'hack') {
+      progressionSystem.recordAbilityUse('hack');
       this.abilitySystem.useHack(
         this.terminals,
         (term) => {
@@ -662,7 +729,16 @@ export class BaseLevelScene extends Phaser.Scene {
       );
       this.updateExitUnlockState();
     } else if (id === 'glitch') {
+      progressionSystem.recordAbilityUse('glitch');
       this.abilitySystem.useGlitchPulse(this.drones, this.glitches, this.hazards, this.boss);
+      // Glitch pulse stuns nearby sentry turrets briefly
+      const px = this.player.x;
+      const py = this.player.y;
+      this.sentries.forEach((s) => {
+        if (Phaser.Math.Distance.Between(px, py, s.x, s.y) <= 180) {
+          s.disableSentry(3500);
+        }
+      });
       this.updateExitUnlockState();
     }
   }
@@ -684,13 +760,14 @@ export class BaseLevelScene extends Phaser.Scene {
     const shardsReady = levelSystem.areAllShardsCollected();
     const bossReady = !this.boss || this.boss.isDefeated();
     const unlocked = shardsReady && bossReady;
-    this.exitPortal.setUnlocked(unlocked, this.levelNum === 3, this.getExitLockReason());
+    this.exitPortal.setUnlocked(unlocked, this.levelNum === 3 || this.levelNum === 4, this.getExitLockReason());
   }
 
   private handlePlayerDeath() {
     if (this.isGameOver || this.levelCompleted) return;
     this.isGameOver = true;
     this.player.setVelocity(0, 0);
+    AudioSystem.setTension(false);
     this.emitHudSnapshot();
     gameEvents.emit('level-game-over', {
       levelNumber: this.levelNum,
@@ -702,20 +779,43 @@ export class BaseLevelScene extends Phaser.Scene {
     if (this.levelCompleted || this.isGameOver) return;
     this.levelCompleted = true;
     this.player.setVelocity(0, 0);
+    AudioSystem.setTension(false);
     AudioSystem.playVictory();
     this.emitHudSnapshot();
 
-    if (this.levelNum === 3) {
+    const timeMs = this.levelElapsedMs;
+    const damageTaken = this.healthSystem.getDamageTaken();
+    const secretFound = this.secretCache ? this.secretCache.isCollected() : false;
+
+    // Record sector completion & compute stars
+    const starResult = progressionSystem.recordSectorCompletion(
+      this.levelNum,
+      timeMs,
+      damageTaken,
+      secretFound,
+      this.config.parTimeMs
+    );
+
+    if (this.levelNum === 4) {
       gameEvents.emit('game-victory', {
         shardsCollected: levelSystem.getShardsCollected(),
-        shardsRequired: levelSystem.getShardsRequired()
+        shardsRequired: levelSystem.getShardsRequired(),
+        levelNumber: 4,
+        timeMs,
+        damageTaken,
+        starsEarned: starResult.starsEarned,
+        isNewBestTime: starResult.isNewBestTime
       });
     } else {
       gameEvents.emit('level-complete', {
         levelNumber: this.levelNum,
         levelName: this.config.name,
         shardsCollected: levelSystem.getShardsCollected(),
-        shardsRequired: levelSystem.getShardsRequired()
+        shardsRequired: levelSystem.getShardsRequired(),
+        timeMs,
+        damageTaken,
+        starsEarned: starResult.starsEarned,
+        isNewBestTime: starResult.isNewBestTime
       });
     }
   }
@@ -728,6 +828,7 @@ export class BaseLevelScene extends Phaser.Scene {
   public update(_time: number, delta: number) {
     if (this.levelCompleted || this.isGameOver) return;
 
+    this.levelElapsedMs += delta;
     this.player.update(delta);
     this.healthSystem.update(delta);
     this.abilitySystem.update(delta);
@@ -744,6 +845,44 @@ export class BaseLevelScene extends Phaser.Scene {
     this.hazards.forEach((h) => h.update(delta));
     this.drones.forEach((d) => d.update(delta, this.player.x, this.player.y, this.decoys));
     this.glitches.forEach((g) => g.update(delta, this.player.x, this.player.y, this.decoys));
+
+    // Update Sentry Turrets
+    this.sentries.forEach((s) => {
+      s.update(delta, this.player.x, this.player.y, this.decoys, () => {
+        this.healthSystem.damage('Sentry Turret Cannon');
+      });
+    });
+
+    // Check Secret Cache proximity
+    if (this.secretCache && !this.secretCache.isCollected()) {
+      this.secretCache.update(delta);
+      if (
+        Phaser.Math.Distance.Between(
+          this.player.x,
+          this.player.y,
+          this.secretCache.x,
+          this.secretCache.y
+        ) <= 44
+      ) {
+        this.secretCache.collect();
+        progressionSystem.unlockAchievement('achievement_secret_finder');
+        this.showToast(`LORE ARCHIVE FOUND: ${this.secretCache.getLore()}`);
+      }
+    }
+
+    // Dynamic music tension check
+    const hasTension =
+      this.drones.some((d) => d.isInAlert()) ||
+      this.sentries.some((s) => s.isLockedOn()) ||
+      (this.boss && !this.boss.isDefeated() && this.boss.getPhase() >= 2);
+    AudioSystem.setTension(Boolean(hasTension));
+
+    // Ambient dust mote motion
+    for (let i = 0; i < this.ambientDustMotes.length; i++) {
+      const mote = this.ambientDustMotes[i];
+      mote.y += Math.sin((this.levelElapsedMs + i * 150) * 0.002) * 0.25;
+      mote.x += Math.cos((this.levelElapsedMs + i * 200) * 0.0015) * 0.2;
+    }
 
     if (this.boss) {
       const wasDefeated = this.boss.isDefeated();
@@ -846,6 +985,9 @@ export class BaseLevelScene extends Phaser.Scene {
       abilities: this.abilitySystem.getStatusList(),
       nearbyPrompt,
       toastMessage: this.toastMessage,
+      speedrunTimeMs: this.levelElapsedMs,
+      parTimeMs: this.config.parTimeMs,
+      difficulty: progressionSystem.getDifficulty(),
       boss: {
         visible: Boolean(this.boss),
         name: 'CORRUPTED CORE GUARDIAN',

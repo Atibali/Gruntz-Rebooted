@@ -5,9 +5,10 @@ import { AudioSystem } from './AudioSystem';
 export class HealthSystem {
   private scene: Phaser.Scene;
   private player: Player;
-  private hp: number = 3;
-  private readonly maxHp: number = 3;
+  private hp: number;
+  private readonly maxHp: number;
   private invulnTimer: number = 0;
+  private damageTaken: number = 0;
   private onDeath: () => void;
   private onDamageToast: (msg: string) => void;
 
@@ -15,10 +16,14 @@ export class HealthSystem {
     scene: Phaser.Scene,
     player: Player,
     onDeath: () => void,
-    onDamageToast: (msg: string) => void
+    onDamageToast: (msg: string) => void,
+    maxHp: number = 3
   ) {
     this.scene = scene;
     this.player = player;
+    this.maxHp = maxHp;
+    this.hp = maxHp;
+    this.damageTaken = 0;
     this.onDeath = onDeath;
     this.onDamageToast = onDamageToast;
   }
@@ -29,6 +34,10 @@ export class HealthSystem {
 
   public getMaxHp(): number {
     return this.maxHp;
+  }
+
+  public getDamageTaken(): number {
+    return this.damageTaken;
   }
 
   public isInvulnerable(): boolean {
@@ -46,6 +55,7 @@ export class HealthSystem {
       return false;
     }
 
+    this.damageTaken += 1;
     this.hp = Math.max(0, this.hp - 1);
     this.invulnTimer = 1300;
     AudioSystem.playDamage();

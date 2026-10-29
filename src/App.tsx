@@ -4,11 +4,15 @@ import { BootScene } from './scenes/BootScene';
 import { Level1Scene } from './scenes/Level1Scene';
 import { Level2Scene } from './scenes/Level2Scene';
 import { Level3Scene } from './scenes/Level3Scene';
+import { Level4Scene } from './scenes/Level4Scene';
 import { gameEvents, GameState, HudSnapshot, ToolType } from './systems/GameEvents';
 import { AudioSystem } from './systems/AudioSystem';
+import { progressionSystem } from './systems/ProgressionSystem';
 import { HUD } from './ui/HUD';
 import { AbilityBar } from './ui/AbilityBar';
 import { PauseMenu } from './ui/PauseMenu';
+import { SettingsModal } from './ui/SettingsModal';
+import { AchievementsModal } from './ui/AchievementsModal';
 import { LEVELS } from './config/levels';
 import {
   Play,
@@ -23,7 +27,12 @@ import {
   ArrowRight,
   Keyboard,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Trophy,
+  Settings,
+  Star,
+  Clock,
+  Heart
 } from 'lucide-react';
 
 const INITIAL_HUD: HudSnapshot = {
@@ -58,6 +67,9 @@ const INITIAL_HUD: HudSnapshot = {
   ],
   nearbyPrompt: null,
   toastMessage: null,
+  speedrunTimeMs: 0,
+  parTimeMs: 65000,
+  difficulty: 'NORMAL',
   boss: {
     visible: false,
     name: 'CORRUPTED CORE GUARDIAN',
@@ -75,28 +87,48 @@ const INITIAL_HUD: HudSnapshot = {
   }
 };
 
+interface CompletionStats {
+  levelNumber: number;
+  levelName?: string;
+  timeMs: number;
+  damageTaken: number;
+  starsEarned: number;
+  isNewBestTime?: boolean;
+  shardsCollected: number;
+  shardsRequired: number;
+}
+
 export default function App() {
   const gameContainerRef = useRef<HTMLDivElement | null>(null);
   const phaserGameRef = useRef<Phaser.Game | null>(null);
 
   const [gameState, setGameState] = useState<GameState>('MAIN_MENU');
   const [showControlsModal, setShowControlsModal] = useState<boolean>(false);
+  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
+  const [showAchievementsModal, setShowAchievementsModal] = useState<boolean>(false);
   const [hud, setHud] = useState<HudSnapshot>(INITIAL_HUD);
   const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [activeLevel, setActiveLevel] = useState<1 | 2 | 3>(1);
-  const activeLevelRef = useRef<1 | 2 | 3>(1);
+  const [activeLevel, setActiveLevel] = useState<1 | 2 | 3 | 4>(1);
+  const [lastStats, setLastStats] = useState<CompletionStats | null>(null);
+  const activeLevelRef = useRef<1 | 2 | 3 | 4>(1);
 
-  const getSceneKey = (lvl: 1 | 2 | 3) =>
-    lvl === 1 ? 'Level1Scene' : lvl === 2 ? 'Level2Scene' : 'Level3Scene';
+  const getSceneKey = (lvl: 1 | 2 | 3 | 4) =>
+    lvl === 1
+      ? 'Level1Scene'
+      : lvl === 2
+      ? 'Level2Scene'
+      : lvl === 3
+      ? 'Level3Scene'
+      : 'Level4Scene';
 
-  const prepareLevel = useCallback((lvl: 1 | 2 | 3) => {
+  const prepareLevel = useCallback((lvl: 1 | 2 | 3 | 4) => {
     activeLevelRef.current = lvl;
     setActiveLevel(lvl);
     setGameState('LEVEL_INTRO');
     setShowControlsModal(false);
     const game = phaserGameRef.current;
     if (game) {
-      (['Level1Scene', 'Level2Scene', 'Level3Scene'] as const).forEach((key) => {
+      (['Level1Scene', 'Level2Scene', 'Level3Scene', 'Level4Scene'] as const).forEach((key) => {
         if (game.scene.isActive(key) && !game.scene.isPaused(key)) {
           game.scene.pause(key);
         }
@@ -104,7 +136,7 @@ export default function App() {
     }
   }, []);
 
-  const startOrSwitchLevel = useCallback((lvl: 1 | 2 | 3) => {
+  const startOrSwitchLevel = useCallback((lvl: 1 | 2 | 3 | 4) => {
     activeLevelRef.current = lvl;
     setActiveLevel(lvl);
     setGameState('PLAYING');
@@ -113,7 +145,7 @@ export default function App() {
     if (!game) return;
 
     const targetKey = getSceneKey(lvl);
-    (['Level1Scene', 'Level2Scene', 'Level3Scene'] as const).forEach((k) => {
+    (['Level1Scene', 'Level2Scene', 'Level3Scene', 'Level4Scene'] as const).forEach((k) => {
       if (k !== targetKey && game.scene.isActive(k)) {
         game.scene.stop(k);
       }
@@ -147,7 +179,7 @@ export default function App() {
         mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH
       },
-      scene: [BootScene, Level1Scene, Level2Scene, Level3Scene]
+      scene: [BootScene, Level1Scene, Level2Scene, Level3Scene, Level4Scene]
     };
 
     const game = new Phaser.Game(config);
@@ -157,7 +189,8 @@ export default function App() {
       setHud(snapshot);
     };
 
-    const onLevelComplete = () => {
+    const onLevelComplete = (payload: CompletionStats) => {
+      setLastStats(payload);
       setGameState('LEVEL_COMPLETE');
     };
 
@@ -165,7 +198,8 @@ export default function App() {
       setGameState('GAME_OVER');
     };
 
-    const onVictory = () => {
+    const onVictory = (payload: CompletionStats) => {
+      setLastStats(payload);
       setGameState('VICTORY');
     };
 
@@ -228,8 +262,8 @@ export default function App() {
   };
 
   const handleNextLevel = () => {
-    if (activeLevel < 3) {
-      prepareLevel((activeLevel + 1) as 1 | 2 | 3);
+    if (activeLevel < 4) {
+      prepareLevel((activeLevel + 1) as 1 | 2 | 3 | 4);
     } else {
       prepareLevel(1);
     }
@@ -238,7 +272,7 @@ export default function App() {
   const handleMainMenu = () => {
     const game = phaserGameRef.current;
     if (game) {
-      (['Level1Scene', 'Level2Scene', 'Level3Scene'] as const).forEach((k) => {
+      (['Level1Scene', 'Level2Scene', 'Level3Scene', 'Level4Scene'] as const).forEach((k) => {
         if (game.scene.isActive(k) || game.scene.isPaused(k)) {
           game.scene.stop(k);
         }
@@ -255,6 +289,8 @@ export default function App() {
   const handleCloseToolModal = () => {
     gameEvents.emit('ui-close-tool-modal');
   };
+
+  const totalStars = progressionSystem.getTotalStars();
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#070B12] text-slate-100 select-none">
@@ -276,6 +312,8 @@ export default function App() {
             onSelectLevel={prepareLevel}
             onSelectToolFromModal={handleSelectToolFromModal}
             onCloseToolModal={handleCloseToolModal}
+            onOpenSettings={() => setShowSettingsModal(true)}
+            onOpenAchievements={() => setShowAchievementsModal(true)}
           />
           <AbilityBar
             activeTool={hud.activeTool}
@@ -292,40 +330,62 @@ export default function App() {
       {/* MAIN MENU OVERLAY */}
       {gameState === 'MAIN_MENU' && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-[#070B12]/90 backdrop-blur-md p-6 overflow-y-auto">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-800 bg-[#0B121E] p-8 md:p-10 shadow-2xl">
+          <div className="w-full max-w-3xl rounded-2xl border border-slate-800 bg-[#0B121E] p-8 md:p-10 shadow-2xl">
             <div className="text-center">
-              <p className="font-mono-tabular text-xs font-semibold tracking-widest text-amber-400">
-                1999 PUZZLE-STRATEGY DNA · TOOL & ENVIRONMENT SYSTEM
-              </p>
+              <div className="flex items-center justify-center space-x-2">
+                <span className="font-mono-tabular text-xs font-semibold tracking-widest text-amber-400">
+                  1999 PUZZLE-STRATEGY DNA · TOOL & REPLAY OVERHAUL
+                </span>
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-mono font-bold">
+                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                  <span>{totalStars} / 12 STARS</span>
+                </span>
+              </div>
               <h1
                 className="font-display mt-2 text-4xl md:text-5xl font-bold tracking-wider text-emerald-400"
                 style={{ textWrap: 'balance' }}
               >
                 GRUNTZ: REBOOTED
               </h1>
-              <p className="mx-auto mt-3 max-w-lg text-sm text-slate-300 leading-relaxed">
+              <p className="mx-auto mt-3 max-w-xl text-sm text-slate-300 leading-relaxed">
                 Explore a corrupted computer mainframe, swap physical tools at Tool Stations (one
-                at a time), smash corrupted walls, excavate soft-data paths, lure security drones
-                with Glitch Decoys, recover Core Fragments, and escape security escalation.
+                at a time), smash corrupted walls, excavate soft-data paths, bypass scanning Sentry
+                Turrets, recover Core Fragments, and access the Overclock Sanctum.
               </p>
             </div>
 
             {/* Primary Menu Actions */}
-            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <button
                 onClick={() => prepareLevel(1)}
-                className="flex w-full sm:w-auto min-w-[200px] cursor-pointer items-center justify-center gap-2.5 rounded-xl bg-emerald-500 px-7 py-3.5 font-display text-base font-bold text-slate-950 hover:bg-emerald-400 transition-all shadow-lg whitespace-nowrap"
+                className="flex cursor-pointer items-center justify-center gap-2.5 rounded-xl bg-emerald-500 px-7 py-3.5 font-display text-base font-bold text-slate-950 hover:bg-emerald-400 transition-all shadow-lg whitespace-nowrap"
               >
                 <Play className="h-5 w-5 fill-current" />
                 <span>PLAY GAME</span>
               </button>
 
               <button
-                onClick={() => setShowControlsModal((prev) => !prev)}
-                className="flex w-full sm:w-auto min-w-[200px] cursor-pointer items-center justify-center gap-2.5 rounded-xl border border-slate-700 bg-slate-900 px-7 py-3.5 font-display text-base font-semibold text-slate-200 hover:border-slate-600 hover:bg-slate-800 transition-all whitespace-nowrap"
+                onClick={() => setShowAchievementsModal(true)}
+                className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-3.5 font-display text-sm font-semibold text-amber-300 hover:border-amber-500/50 hover:bg-amber-500/20 transition-all whitespace-nowrap"
               >
-                <Keyboard className="h-5 w-5 text-amber-400" />
-                <span>{showControlsModal ? 'HIDE CONTROLS' : 'TOOLS & CONTROLS'}</span>
+                <Trophy className="h-4 w-4" />
+                <span>HONORS & ARCHIVE</span>
+              </button>
+
+              <button
+                onClick={() => setShowSettingsModal(true)}
+                className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-5 py-3.5 font-display text-sm font-semibold text-cyan-300 hover:border-cyan-500/50 hover:bg-cyan-500/20 transition-all whitespace-nowrap"
+              >
+                <Settings className="h-4 w-4" />
+                <span>SETTINGS & AUDIO</span>
+              </button>
+
+              <button
+                onClick={() => setShowControlsModal((prev) => !prev)}
+                className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-5 py-3.5 font-display text-sm font-semibold text-slate-200 hover:border-slate-600 hover:bg-slate-800 transition-all whitespace-nowrap"
+              >
+                <Keyboard className="h-4 w-4 text-slate-400" />
+                <span>{showControlsModal ? 'HIDE CONTROLS' : 'CONTROLS'}</span>
               </button>
             </div>
 
@@ -333,50 +393,61 @@ export default function App() {
             <div className="mt-8 border-t border-slate-800/90 pt-6">
               <div className="flex items-center justify-between mb-3">
                 <span className="font-display text-xs font-semibold tracking-wider text-slate-400">
-                  SELECT SYSTEM SECTOR
+                  SYSTEM SECTORS
                 </span>
                 <span className="font-mono-tabular text-xs text-slate-400">
-                  4 Physical Tools · 4 Abilities · 3 Sectors
+                  4 Tools · 4 Abilities · 4 Sectors
                 </span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                 <button
                   onClick={() => prepareLevel(1)}
-                  className="cursor-pointer rounded-xl border border-slate-800 bg-slate-900/70 p-3.5 text-left hover:border-emerald-500/60 hover:bg-slate-900 transition-colors"
+                  className="cursor-pointer rounded-xl border border-slate-800 bg-slate-900/70 p-3 text-left hover:border-emerald-500/60 hover:bg-slate-900 transition-colors"
                 >
                   <div className="font-display text-sm font-bold text-emerald-400">
                     01. Boot Sector
                   </div>
-                  <div className="mt-1 text-xs text-slate-400">
-                    Tool Station · Hammer · 1 Fragment
+                  <div className="mt-1 text-[11px] text-slate-400">
+                    Hammer · Shovel · 1 Fragment
                   </div>
                 </button>
                 <button
                   onClick={() => prepareLevel(2)}
-                  className="cursor-pointer rounded-xl border border-slate-800 bg-slate-900/70 p-3.5 text-left hover:border-amber-500/60 hover:bg-slate-900 transition-colors"
+                  className="cursor-pointer rounded-xl border border-slate-800 bg-slate-900/70 p-3 text-left hover:border-amber-500/60 hover:bg-slate-900 transition-colors"
                 >
                   <div className="font-display text-sm font-bold text-amber-400">
-                    02. Firewall Factory
+                    02. Firewall
                   </div>
-                  <div className="mt-1 text-xs text-slate-400">
-                    Tool Choice · Decoy · 2 Fragments
+                  <div className="mt-1 text-[11px] text-slate-400">
+                    Sentry · Decoy · 2 Fragments
                   </div>
                 </button>
                 <button
                   onClick={() => prepareLevel(3)}
-                  className="cursor-pointer rounded-xl border border-slate-800 bg-slate-900/70 p-3.5 text-left hover:border-rose-500/60 hover:bg-slate-900 transition-colors"
+                  className="cursor-pointer rounded-xl border border-slate-800 bg-slate-900/70 p-3 text-left hover:border-rose-500/60 hover:bg-slate-900 transition-colors"
                 >
                   <div className="font-display text-sm font-bold text-rose-400">
                     03. Core Breach
                   </div>
-                  <div className="mt-1 text-xs text-slate-400">
-                    Surge Nodes · Core Boss · 3 Fragments
+                  <div className="mt-1 text-[11px] text-slate-400">
+                    Guardian Boss · 3 Fragments
+                  </div>
+                </button>
+                <button
+                  onClick={() => prepareLevel(4)}
+                  className="cursor-pointer rounded-xl border border-cyan-500/40 bg-cyan-950/20 p-3 text-left hover:border-cyan-400 hover:bg-cyan-950/40 transition-colors"
+                >
+                  <div className="font-display text-sm font-bold text-cyan-300">
+                    04. Sanctum
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-400">
+                    Prime Core · 4 Fragments
                   </div>
                 </button>
               </div>
             </div>
 
-            {/* Expandable Controls, Physical Tools & Digital Abilities Panel */}
+            {/* Expandable Controls Panel */}
             {showControlsModal && (
               <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950/90 p-5 space-y-5">
                 <div>
@@ -393,7 +464,7 @@ export default function App() {
                     <div className="flex items-start gap-2.5 text-slate-300">
                       <Zap className="h-4 w-4 text-sky-400 shrink-0 mt-0.5" />
                       <span>
-                        <strong className="text-white">EMP Glove:</strong> Powers [2] EMP blast to disable drones, lasers & traps.
+                        <strong className="text-white">EMP Glove:</strong> Powers [2] EMP blast to disable drones, lasers & sentries.
                       </span>
                     </div>
                     <div className="flex items-start gap-2.5 text-slate-300">
@@ -435,19 +506,19 @@ export default function App() {
                     <div className="flex items-center gap-2 text-slate-300">
                       <Shield className="h-4 w-4 text-sky-400 shrink-0" />
                       <span>
-                        <strong className="text-white">[1] Shield:</strong> 3s defensive energy barrier.
+                        <strong className="text-white">[1] Shield:</strong> 3s defensive barrier.
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-slate-300">
                       <Zap className="h-4 w-4 text-amber-400 shrink-0" />
                       <span>
-                        <strong className="text-white">[2] EMP:</strong> Discharges EMP Glove pulse.
+                        <strong className="text-white">[2] EMP:</strong> Discharges EMP Glove.
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-slate-300">
                       <Terminal className="h-4 w-4 text-emerald-400 shrink-0" />
                       <span>
-                        <strong className="text-white">[3] Hack:</strong> Contextual terminal override.
+                        <strong className="text-white">[3] Hack:</strong> Terminal override.
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-slate-300">
@@ -487,9 +558,14 @@ export default function App() {
               <p className="mt-2 text-sm leading-relaxed text-slate-200">
                 {LEVELS[activeLevel].objective}
               </p>
-              <p className="mt-4 font-mono-tabular text-xs text-amber-300">
-                REQUIRED CORE FRAGMENTS · {LEVELS[activeLevel].shardsRequired}
-              </p>
+              <div className="mt-4 flex items-center justify-between text-xs font-mono">
+                <span className="text-amber-300">
+                  REQUIRED CORE FRAGMENTS · {LEVELS[activeLevel].shardsRequired}
+                </span>
+                <span className="text-cyan-400">
+                  PAR TIME · {(LEVELS[activeLevel].parTimeMs / 1000).toFixed(0)}s
+                </span>
+              </div>
             </div>
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row">
               <button
@@ -515,6 +591,8 @@ export default function App() {
           onResume={handleResume}
           onRestart={handleRestartLevel}
           onMainMenu={handleMainMenu}
+          onOpenSettings={() => setShowSettingsModal(true)}
+          onOpenAchievements={() => setShowAchievementsModal(true)}
         />
       )}
 
@@ -528,24 +606,64 @@ export default function App() {
             </h2>
             <p className="mt-1 text-xs text-slate-400">{hud.levelName}</p>
 
-            <div className="mt-6 space-y-2 rounded-xl border border-slate-800 bg-slate-950/90 p-4 font-mono-tabular text-sm">
+            {/* Star Rating Display */}
+            {lastStats && (
+              <div className="mt-4 flex items-center justify-center space-x-2">
+                {[1, 2, 3].map((starIdx) => (
+                  <Star
+                    key={starIdx}
+                    className={`w-7 h-7 transition-all ${
+                      starIdx <= lastStats.starsEarned
+                        ? 'text-amber-400 fill-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]'
+                        : 'text-slate-700'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+
+            <div className="mt-5 space-y-2 rounded-xl border border-slate-800 bg-slate-950/90 p-4 font-mono-tabular text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-400">CORE FRAGMENTS:</span>
                 <span className="font-bold text-amber-400">
-                  {hud.shardsCollected} / {hud.shardsRequired}
+                  {lastStats ? lastStats.shardsCollected : hud.shardsCollected} /{' '}
+                  {lastStats ? lastStats.shardsRequired : hud.shardsRequired}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">SECURITY BYPASSED:</span>
-                <span className="font-bold text-emerald-400">CONFIRMED</span>
-              </div>
+              {lastStats && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">CLEAR TIME:</span>
+                    <span className="font-bold text-cyan-300">
+                      {(lastStats.timeMs / 1000).toFixed(1)}s
+                      {lastStats.isNewBestTime && (
+                        <span className="ml-1.5 text-[10px] text-amber-400 font-bold">
+                          [NEW BEST]
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">DAMAGE SUSTAINED:</span>
+                    <span
+                      className={`font-bold ${
+                        lastStats.damageTaken === 0 ? 'text-emerald-400' : 'text-slate-200'
+                      }`}
+                    >
+                      {lastStats.damageTaken === 0
+                        ? '0 HP (FLAWLESS ★)'
+                        : `${lastStats.damageTaken} HP`}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
             <button
               onClick={handleNextLevel}
-              className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3.5 font-display text-base font-bold text-slate-950 hover:bg-emerald-400 transition-colors whitespace-nowrap"
+              className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3.5 font-display text-base font-bold text-slate-950 hover:bg-emerald-400 transition-colors whitespace-nowrap shadow-lg"
             >
-              <span>NEXT SECTOR</span>
+              <span>{activeLevel < 4 ? 'NEXT SECTOR' : 'REVISIT SECTORS'}</span>
               <ArrowRight className="h-5 w-5" />
             </button>
           </div>
@@ -567,7 +685,7 @@ export default function App() {
             <div className="mt-6 flex flex-col gap-3">
               <button
                 onClick={handleRestartLevel}
-                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-rose-500 px-6 py-3.5 font-display text-base font-bold text-white hover:bg-rose-400 transition-colors whitespace-nowrap"
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-rose-500 px-6 py-3.5 font-display text-base font-bold text-white hover:bg-rose-400 transition-colors whitespace-nowrap shadow-lg"
               >
                 <RotateCcw className="h-5 w-5" />
                 <span>RESTART LEVEL</span>
@@ -589,39 +707,58 @@ export default function App() {
           <div className="w-full max-w-lg rounded-2xl border border-emerald-500/50 bg-[#0B121E] p-8 text-center shadow-2xl">
             <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-400" />
             <p className="mt-3 font-mono-tabular text-xs font-semibold tracking-widest text-amber-400">
-              SYSTEM CORE PURGE: 100%
+              PRIME RESTORATION: 100% COMPLETE
             </p>
             <h2 className="font-display mt-1 text-3xl md:text-4xl font-bold tracking-wide text-emerald-400">
               SYSTEM RESTORED!
             </h2>
             <p className="mt-3 text-sm text-slate-300 leading-relaxed">
-              Your Digital Grunt mastered the Tool Stations, recovered all Core Fragments across
-              all three sectors, and purged the Corrupted Core Guardian.
+              Your Digital Grunt mastered all 4 physical tools, solved every security grid,
+              overcame the Sentry Turrets, and purged the systemic corruption from the Prime Sanctum.
             </p>
 
-            <div className="mt-6 space-y-2 rounded-xl border border-slate-800 bg-slate-950/90 p-4 font-mono-tabular text-sm">
+            {/* Victory Stars */}
+            <div className="mt-4 flex items-center justify-center space-x-2">
+              <Star className="w-6 h-6 text-amber-400 fill-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+              <span className="font-mono font-bold text-amber-300 text-sm">
+                TOTAL STARS: {totalStars} / 12
+              </span>
+            </div>
+
+            <div className="mt-5 space-y-2 rounded-xl border border-slate-800 bg-slate-950/90 p-4 font-mono-tabular text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-400">CORE FRAGMENTS RECOVERED:</span>
-                <span className="font-bold text-amber-400">
-                  {hud.shardsCollected} / {hud.shardsRequired}
+                <span className="text-slate-400">SANCTUM CLEAR TIME:</span>
+                <span className="font-bold text-cyan-300">
+                  {lastStats ? (lastStats.timeMs / 1000).toFixed(1) + 's' : '--'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">CORE GUARDIAN STATUS:</span>
-                <span className="font-bold text-emerald-400">PURGED (100%)</span>
+                <span className="text-slate-400">DAMAGE SUSTAINED:</span>
+                <span className="font-bold text-emerald-400">
+                  {lastStats ? `${lastStats.damageTaken} HP` : '0 HP'}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">SYSTEM STATUS:</span>
-                <span className="font-bold text-emerald-400">SYSTEM RESTORED</span>
+                <span className="text-slate-400">ALL 4 SECTORS:</span>
+                <span className="font-bold text-emerald-400">OPERATIONAL & ONLINE</span>
               </div>
             </div>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => startOrSwitchLevel(1)}
-                className="flex-1 cursor-pointer rounded-xl bg-emerald-500 px-6 py-3.5 font-display text-sm font-bold text-slate-950 hover:bg-emerald-400 transition-colors whitespace-nowrap"
+                className="flex-1 cursor-pointer rounded-xl bg-emerald-500 px-6 py-3.5 font-display text-sm font-bold text-slate-950 hover:bg-emerald-400 transition-colors whitespace-nowrap shadow-lg"
               >
-                PLAY AGAIN (LEVEL 1)
+                PLAY AGAIN (SECTOR 1)
+              </button>
+              <button
+                onClick={() => {
+                  setGameState('MAIN_MENU');
+                  setShowAchievementsModal(true);
+                }}
+                className="flex-1 cursor-pointer rounded-xl border border-amber-500/40 bg-amber-500/10 px-6 py-3.5 font-display text-sm font-semibold text-amber-300 hover:bg-amber-500/20 transition-colors whitespace-nowrap"
+              >
+                VIEW ARCHIVE
               </button>
               <button
                 onClick={handleMainMenu}
@@ -633,6 +770,18 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+      />
+
+      {/* Achievements / Archive Modal */}
+      <AchievementsModal
+        isOpen={showAchievementsModal}
+        onClose={() => setShowAchievementsModal(false)}
+      />
     </div>
   );
 }

@@ -14,13 +14,24 @@ export class SecurityDrone extends Phaser.Physics.Arcade.Sprite {
   private reverseTimer: number = 0;
   private statusLabel: Phaser.GameObjects.Text;
   private sensorRing: Phaser.GameObjects.Graphics;
+  public baseSpeed: number = 88;
+  public baseChaseSpeed: number = 112;
+  public baseDetectRadius: number = 140;
 
-  constructor(scene: Phaser.Scene, config: EnemyConfig) {
+  constructor(
+    scene: Phaser.Scene,
+    config: EnemyConfig,
+    speedMultiplier: number = 1.0,
+    detectMultiplier: number = 1.0
+  ) {
     const startX = config.col * TILE_SIZE + TILE_SIZE / 2;
     const startY = config.row * TILE_SIZE + TILE_SIZE / 2;
     super(scene, startX, startY, 'enemy_drone');
 
     this.enemyId = config.id;
+    this.baseSpeed = Math.round(88 * speedMultiplier);
+    this.baseChaseSpeed = Math.round(112 * speedMultiplier);
+    this.baseDetectRadius = Math.round(140 * detectMultiplier);
     this.pointA = { x: startX, y: startY };
     const endCol = config.patrolEndCol ?? config.col + 3;
     const endRow = config.patrolEndRow ?? config.row;
@@ -51,7 +62,7 @@ export class SecurityDrone extends Phaser.Physics.Arcade.Sprite {
       .setDepth(14);
   }
 
-  public disableWithEmp(durationMs: number = 4500) {
+  public disableWithEmp(durationMs: number = 5000) {
     this.disableTimer = Math.max(this.disableTimer, durationMs);
     this.aiState = 'DISABLED';
     this.setTexture('enemy_drone_disabled');
@@ -60,7 +71,7 @@ export class SecurityDrone extends Phaser.Physics.Arcade.Sprite {
     this.statusLabel.setColor('#38bdf8');
   }
 
-  public disruptWithGlitch(durationMs: number = 3500) {
+  public disruptWithGlitch(durationMs: number = 3800) {
     this.disableTimer = Math.max(this.disableTimer, 1400);
     this.reverseTimer = durationMs;
     this.reverseMultiplier = -1;
@@ -75,11 +86,21 @@ export class SecurityDrone extends Phaser.Physics.Arcade.Sprite {
     return this.disableTimer <= 0;
   }
 
+  public isChasing(): boolean {
+    return this.aiState === 'CHASE';
+  }
+
+  public isInAlert(): boolean {
+    return this.isChasing();
+  }
+
   public update(
     delta: number,
     playerX: number,
     playerY: number,
-    activeDecoys: DecoyBeacon[] = []
+    activeDecoys: DecoyBeacon[] = [],
+    speedMult: number = 1.0,
+    detectMult: number = 1.0
   ) {
     this.statusLabel.setPosition(this.x, this.y - 24);
     this.sensorRing.clear();
@@ -94,7 +115,7 @@ export class SecurityDrone extends Phaser.Physics.Arcade.Sprite {
     if (this.disableTimer > 0) {
       this.disableTimer = Math.max(0, this.disableTimer - delta);
       this.setVelocity(0, 0);
-      this.sensorRing.lineStyle(1, 0x38bdf8, 0.3);
+      this.sensorRing.lineStyle(1.5, 0x38bdf8, 0.4);
       this.sensorRing.strokeCircle(this.x, this.y, 22);
       if (this.disableTimer <= 0) {
         this.aiState = 'PATROL';
@@ -103,9 +124,9 @@ export class SecurityDrone extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    // Check if distracted by a Glitch Decoy within 240px
+    // Check if distracted by a Glitch Decoy within 250px
     let nearestDecoy: DecoyBeacon | undefined;
-    let nearestDecoyDist = 240;
+    let nearestDecoyDist = 250;
     activeDecoys.forEach((decoy) => {
       if (!decoy.isActive()) return;
       const d = Phaser.Math.Distance.Between(this.x, this.y, decoy.x, decoy.y);
@@ -120,11 +141,12 @@ export class SecurityDrone extends Phaser.Physics.Arcade.Sprite {
       this.statusLabel.setText('DISTRACTED!');
       this.statusLabel.setColor('#38bdf8');
       this.sensorRing.lineStyle(1.5, 0x38bdf8, 0.45);
-      this.sensorRing.strokeCircle(this.x, this.y, 135);
+      this.sensorRing.strokeCircle(this.x, this.y, 140);
 
-      if (nearestDecoyDist > 22) {
+      if (nearestDecoyDist > 20) {
         const angle = Phaser.Math.Angle.Between(this.x, this.y, nearestDecoy.x, nearestDecoy.y);
-        this.setVelocity(Math.cos(angle) * 98, Math.sin(angle) * 98);
+        const speed = this.baseSpeed * speedMult;
+        this.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
       } else {
         this.setVelocity(0, 0);
       }
@@ -132,7 +154,7 @@ export class SecurityDrone extends Phaser.Physics.Arcade.Sprite {
     }
 
     const distToPlayer = Phaser.Math.Distance.Between(this.x, this.y, playerX, playerY);
-    const detectRadius = 135;
+    const detectRadius = this.baseDetectRadius * detectMult;
 
     if (distToPlayer <= detectRadius) {
       if (this.aiState !== 'CHASE') {
@@ -146,29 +168,29 @@ export class SecurityDrone extends Phaser.Physics.Arcade.Sprite {
       this.aiState = 'PATROL';
     }
 
-    this.sensorRing.lineStyle(
-      1,
-      this.aiState === 'CHASE' ? 0xef4444 : 0xf59e0b,
-      this.aiState === 'CHASE' ? 0.35 : 0.16
-    );
-    this.sensorRing.strokeCircle(this.x, this.y, detectRadius);
-
+    // Dynamic search spotlight rendering
     if (this.aiState === 'CHASE') {
+      this.sensorRing.lineStyle(1.5, 0xef4444, 0.45);
+      this.sensorRing.fillStyle(0xef4444, 0.12);
+      this.sensorRing.fillCircle(this.x, this.y, detectRadius);
+      this.sensorRing.strokeCircle(this.x, this.y, detectRadius);
+
       this.statusLabel.setText(this.reverseMultiplier < 0 ? 'REVERSED' : 'CHASE!');
       this.statusLabel.setColor('#f87171');
       const angle = Phaser.Math.Angle.Between(this.x, this.y, playerX, playerY);
-      const speed = 108 * this.reverseMultiplier;
+      const speed = this.baseChaseSpeed * speedMult * this.reverseMultiplier;
       this.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
     } else {
       this.statusLabel.setText('PATROL');
       this.statusLabel.setColor('#94a3b8');
+
       const distToTarget = Phaser.Math.Distance.Between(
         this.x,
         this.y,
         this.targetPoint.x,
         this.targetPoint.y
       );
-      if (distToTarget < 10) {
+      if (distToTarget < 12) {
         this.targetPoint = this.targetPoint === this.pointA ? this.pointB : this.pointA;
       }
       const angle = Phaser.Math.Angle.Between(
@@ -177,8 +199,33 @@ export class SecurityDrone extends Phaser.Physics.Arcade.Sprite {
         this.targetPoint.x,
         this.targetPoint.y
       );
-      const speed = 82;
+      const speed = this.baseSpeed * speedMult;
       this.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+
+      // Search cone ahead of drone
+      this.drawPatrolCone(angle, detectRadius);
     }
+  }
+
+  private drawPatrolCone(angleRad: number, radius: number) {
+    const halfFov = Phaser.Math.DegToRad(35);
+    const leftRad = angleRad - halfFov;
+    const rightRad = angleRad + halfFov;
+    const x1 = this.x + Math.cos(leftRad) * radius;
+    const y1 = this.y + Math.sin(leftRad) * radius;
+    const x2 = this.x + Math.cos(rightRad) * radius;
+    const y2 = this.y + Math.sin(rightRad) * radius;
+
+    this.sensorRing.fillStyle(0xf59e0b, 0.08);
+    this.sensorRing.beginPath();
+    this.sensorRing.moveTo(this.x, this.y);
+    this.sensorRing.lineTo(x1, y1);
+    this.sensorRing.arc(this.x, this.y, radius, leftRad, rightRad);
+    this.sensorRing.closePath();
+    this.sensorRing.fillPath();
+
+    this.sensorRing.lineStyle(1, 0xf59e0b, 0.25);
+    this.sensorRing.lineBetween(this.x, this.y, x1, y1);
+    this.sensorRing.lineBetween(this.x, this.y, x2, y2);
   }
 }

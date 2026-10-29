@@ -1,15 +1,15 @@
 import { LevelConfig, LEVELS } from '../config/levels';
 
 export class LevelSystem {
-  private currentLevelNum: 1 | 2 | 3 = 1;
+  private currentLevelNum: 1 | 2 | 3 | 4 = 1;
   private shardsCollected: number = 0;
 
-  public setLevel(levelNum: 1 | 2 | 3) {
+  public setLevel(levelNum: 1 | 2 | 3 | 4) {
     this.currentLevelNum = levelNum;
     this.shardsCollected = 0;
   }
 
-  public getCurrentLevelNumber(): 1 | 2 | 3 {
+  public getCurrentLevelNumber(): 1 | 2 | 3 | 4 {
     return this.currentLevelNum;
   }
 

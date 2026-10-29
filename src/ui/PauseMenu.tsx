@@ -1,16 +1,20 @@
 import React from 'react';
-import { Play, RotateCcw, Home } from 'lucide-react';
+import { Play, RotateCcw, Home, Settings, Trophy } from 'lucide-react';
 
 interface PauseMenuProps {
   onResume: () => void;
   onRestart: () => void;
   onMainMenu: () => void;
+  onOpenSettings?: () => void;
+  onOpenAchievements?: () => void;
 }
 
 export const PauseMenu: React.FC<PauseMenuProps> = ({
   onResume,
   onRestart,
-  onMainMenu
+  onMainMenu,
+  onOpenSettings,
+  onOpenAchievements
 }) => {
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
@@ -38,6 +42,27 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({
             <RotateCcw className="h-4 w-4" />
             <span>RESTART LEVEL</span>
           </button>
+
+          <div className="grid grid-cols-2 gap-2">
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-900/90 px-4 py-2.5 text-xs font-semibold text-cyan-300 hover:border-cyan-500/40 hover:bg-slate-800 transition-colors"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                <span>SETTINGS</span>
+              </button>
+            )}
+            {onOpenAchievements && (
+              <button
+                onClick={onOpenAchievements}
+                className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-900/90 px-4 py-2.5 text-xs font-semibold text-amber-300 hover:border-amber-500/40 hover:bg-slate-800 transition-colors"
+              >
+                <Trophy className="h-3.5 w-3.5" />
+                <span>HONORS</span>
+              </button>
+            )}
+          </div>
 
           <button
             onClick={onMainMenu}

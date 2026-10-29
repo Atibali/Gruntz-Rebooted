@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GridPos, TILE_SIZE } from '../config/levels';
 import { ToolType } from '../systems/GameEvents';
+import { AudioSystem } from '../systems/AudioSystem';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -14,11 +15,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private heldToolSprite: Phaser.GameObjects.Sprite;
   private walkAnimTimer: number = 0;
   private walkFrame: number = 0;
+  private footstepTimer: number = 0;
   private shieldActive: boolean = false;
   private shieldAngle: number = 0;
   private activeTool: ToolType = 'NONE';
   private externalDir: { x: number; y: number } = { x: 0, y: 0 };
-  public readonly moveSpeed: number = 178;
+  public moveSpeed: number = 180;
+  private isFacingLeft: boolean = false;
 
   constructor(scene: Phaser.Scene, startPos: GridPos) {
     const x = startPos.col * TILE_SIZE + TILE_SIZE / 2;
@@ -70,8 +73,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   public playToolPickupAnim() {
     this.scene.tweens.add({
       targets: [this, this.heldToolSprite],
-      scaleX: 1.22,
-      scaleY: 1.22,
+      scaleX: 1.25,
+      scaleY: 1.25,
       yoyo: true,
       duration: 150
     });
@@ -79,19 +82,28 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   public playToolUseAnim() {
     if (this.heldToolSprite.visible) {
+      const swingStart = this.isFacingLeft ? 35 : -35;
+      const swingEnd = this.isFacingLeft ? -45 : 45;
       this.scene.tweens.add({
         targets: this.heldToolSprite,
-        angle: { from: -35, to: 45 },
-        scaleX: 1.35,
-        scaleY: 1.35,
+        angle: { from: swingStart, to: swingEnd },
+        scaleX: 1.4,
+        scaleY: 1.4,
         yoyo: true,
-        duration: 140,
+        duration: 130,
         onComplete: () => {
           this.heldToolSprite.setAngle(0);
           this.heldToolSprite.setScale(1);
         }
       });
     }
+  }
+
+  public playHurtAnim() {
+    this.setTexture('player_hurt');
+    this.scene.time.delayedCall(120, () => {
+      this.setTexture('player_idle');
+    });
   }
 
   public setExternalDirection(dx: number, dy: number) {
@@ -135,35 +147,54 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     this.setVelocity(vx * this.moveSpeed, vy * this.moveSpeed);
 
+    // Directional facing
+    if (vx < 0) {
+      this.isFacingLeft = true;
+      this.setFlipX(true);
+    } else if (vx > 0) {
+      this.isFacingLeft = false;
+      this.setFlipX(false);
+    }
+
     if (vx !== 0 || vy !== 0) {
       this.walkAnimTimer += delta;
-      if (this.walkAnimTimer >= 130) {
+      this.footstepTimer += delta;
+
+      if (this.footstepTimer >= 260) {
+        this.footstepTimer = 0;
+        AudioSystem.playFootstep();
+      }
+
+      if (this.walkAnimTimer >= 120) {
         this.walkAnimTimer = 0;
         this.walkFrame = (this.walkFrame + 1) % 2;
         this.setTexture(this.walkFrame === 0 ? 'player_walk1' : 'player_walk2');
       }
     } else {
       this.setTexture('player_idle');
+      this.footstepTimer = 220; // Ready for immediate step sound
     }
 
-    // Update held tool position
-    this.heldToolSprite.setPosition(this.x + 15, this.y + 3);
+    // Held tool offsets based on facing
+    const toolOffsetX = this.isFacingLeft ? -15 : 15;
+    this.heldToolSprite.setPosition(this.x + toolOffsetX, this.y + 3);
+    this.heldToolSprite.setFlipX(this.isFacingLeft);
 
-    // Draw circular energy shield if active
+    // Circular energy shield rendering
     this.shieldGraphics.clear();
     if (this.shieldActive) {
-      this.shieldAngle += delta * 0.006;
-      this.shieldGraphics.lineStyle(2.5, 0x38bdf8, 0.9);
-      this.shieldGraphics.strokeCircle(this.x, this.y, 24);
-      this.shieldGraphics.fillStyle(0x38bdf8, 0.18);
-      this.shieldGraphics.fillCircle(this.x, this.y, 24);
+      this.shieldAngle += delta * 0.007;
+      this.shieldGraphics.lineStyle(2.5, 0x38bdf8, 0.95);
+      this.shieldGraphics.strokeCircle(this.x, this.y, 25);
+      this.shieldGraphics.fillStyle(0x38bdf8, 0.2);
+      this.shieldGraphics.fillCircle(this.x, this.y, 25);
 
       for (let i = 0; i < 3; i++) {
         const a = this.shieldAngle + (i * Math.PI * 2) / 3;
-        const nx = this.x + Math.cos(a) * 24;
-        const ny = this.y + Math.sin(a) * 24;
+        const nx = this.x + Math.cos(a) * 25;
+        const ny = this.y + Math.sin(a) * 25;
         this.shieldGraphics.fillStyle(0x7dd3fc, 1);
-        this.shieldGraphics.fillCircle(nx, ny, 3);
+        this.shieldGraphics.fillCircle(nx, ny, 3.5);
       }
     }
   }
