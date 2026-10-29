@@ -191,7 +191,7 @@ export const LEVELS: Record<1 | 2 | 3 | 4, LevelConfig> = {
         id: 'laser_boot_esc',
         col: 8,
         row: 6,
-        lengthTiles: 3,
+        lengthTiles: 6,
         direction: 'vertical',
         initiallyActive: false
       }
