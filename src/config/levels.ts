@@ -354,7 +354,7 @@ export const LEVELS: Record<1 | 2 | 3 | 4, LevelConfig> = {
       },
       {
         id: 'ts_fw_center',
-        col: 10,
+        col: 11,
         row: 6,
         availableTools: ['HAMMER', 'EMP', 'SHOVEL', 'DECOY']
       }
@@ -421,7 +421,7 @@ export const LEVELS: Record<1 | 2 | 3 | 4, LevelConfig> = {
       '#....................#',
       '######################'
     ],
-    playerStart: { col: 10, row: 2 },
+    playerStart: { col: 2, row: 7 },
     exitPos: { col: 11, row: 14 },
     shards: [
       { col: 2, row: 2 },

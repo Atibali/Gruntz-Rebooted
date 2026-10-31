@@ -2,7 +2,7 @@
 
 **Explore a corrupted mainframe. Choose the right tool. Restore the core.**
 
-GRUNTZ: REBOOTED is a playable browser-based, top-down puzzle-strategy adventure. Guide a small Digital Grunt through three damaged sectors, manipulate system infrastructure, recover Core Fragments, and confront the Corrupted Core Guardian.
+GRUNTZ: REBOOTED is a playable browser-based, top-down puzzle-strategy adventure. Guide a small Digital Grunt through four damaged sectors, manipulate system infrastructure, recover Core Fragments, and confront the Corrupted Core Guardian.
 
 ## Inspiration and reimagining
 
@@ -10,7 +10,7 @@ The project takes inspiration from *Gruntz* (1999): a small character, grid-like
 
 ## Gameplay
 
-Explore each sector, read its layout, choose a tool or ability, and use switches, terminals, routes, and obstacles to reach the required Core Fragments and exit. Fragment recovery escalates security in later sectors. The game has three handcrafted sectors, a three-phase final guardian, health and retry handling, a pause menu, and a victory sequence.
+Explore each sector, read its layout, choose a tool or ability, and use switches, terminals, routes, and obstacles to reach the required Core Fragments and exit. Fragment recovery escalates security in later sectors. The game has four handcrafted sectors, a three-phase guardian encounter, health and retry handling, a pause menu, and a victory sequence.
 
 ### Tools and abilities
 
@@ -25,6 +25,7 @@ Explore each sector, read its layout, choose a tool or ability, and use switches
 1. **Boot Sector** — introduces switches, tool stations, obstacles, a terminal, and fragment recovery.
 2. **Firewall Factory** — adds lasers, security enemies, alternate routes, tool selection, and escalating security.
 3. **Core Breach** — combines environmental puzzles and hazards with Surge Nodes and the Corrupted Core Guardian.
+4. **Overclock Sanctum** — tests tool mastery across four security quadrants before the final Prime Core restoration.
 
 ### Controls
 
@@ -46,7 +47,7 @@ On-screen movement and interaction controls are also available on supported view
 1. Start the game and choose **Play Game** or select a sector.
 2. Review the sector briefing and initialize it.
 3. Explore, interact with the environment, and recover the required fragments.
-4. Reach the unlocked exit. Complete the three sectors and purge the guardian to restore the system.
+4. Reach the unlocked exit. Complete all four sectors and restore the Prime Core to finish the game.
 
 ## Run locally
 
