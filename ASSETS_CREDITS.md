@@ -1,6 +1,6 @@
 # Asset Credits
 
-This inventory reflects assets and external visual resources found in the project source. No bundled image, font, or audio files were found. The repository does not record individual contributors or asset-specific license confirmations; verify the flagged items before public distribution.
+This inventory reflects the third-party and generated assets currently used by the project source. No bundled image, font, or audio files are committed to the repository; the project relies on runtime-generated Phaser textures, synthesized Web Audio effects, and external Google Fonts/Lucide dependencies. The repository does not record individual contributors or asset-specific license confirmations; verify the flagged items before public distribution.
 
 ## ORIGINAL ASSETS
 

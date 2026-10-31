@@ -10,7 +10,7 @@
 
 ## 3. Game concept
 
-A Digital Grunt is trapped in a corrupted computer mainframe. Across three sectors, the player reads the environment, chooses physical tools and digital abilities, manipulates system infrastructure, recovers Core Fragments, and escapes escalating security before confronting the system's guardian.
+A Digital Grunt is trapped in a corrupted computer mainframe. Across four sectors, the player reads the environment, chooses physical tools and digital abilities, manipulates system infrastructure, recovers Core Fragments, and escapes escalating security before confronting the system's guardian.
 
 ## 4. Reimagination and connection to the original
 
@@ -78,8 +78,15 @@ Abilities with cooldowns communicate readiness in the HUD. EMP is shown as unava
 
 - **Purpose:** combine tool choice, environmental puzzles, security management, and a final guardian encounter.
 - **Main mechanics:** multiple routes, doors, platforms, lasers, hazards, enemies, Surge Node switches, and a Core Purge terminal.
-- **Objective:** recover three Core Fragments, defeat the Corrupted Core Guardian, and enter the System Core.
+- **Objective:** recover three Core Fragments, defeat the Corrupted Core Guardian, and prepare the final system breach.
 - **Difficulty progression:** fragment recovery activates security and awakens the guardian; the player must then solve the boss sequence.
+
+### Level 4 — System Core
+
+- **Purpose:** conclude the system restoration arc and complete the purge sequence.
+- **Main mechanics:** final security override, hazard timing, and the last defensive breach into the central system core.
+- **Objective:** finish the final restoration sequence, defeat the remaining security layer, and exit the system cleanly.
+- **Difficulty progression:** the final sector ramps up pressure and requires the player to combine learned tool use with the guardian's vulnerable windows and terminal interactions.
 
 ## 11. Enemy system
 
